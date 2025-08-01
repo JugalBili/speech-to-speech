@@ -1,0 +1,20 @@
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+torch==2.3.0+cu121
+torchaudio==2.3.0+cu121
+pyaudio
+librosa
+speechrecognition
+pvporcupine
+pvcobra
+pvrecorder
+pvspeaker
+soundfile
+openai
+python-dotenv
+faster-whisper
+numpy==1.26.4
+colorlog
+onnxruntime-gpu
+sounddevice>=0.4.4
+snac>=1.2.1
