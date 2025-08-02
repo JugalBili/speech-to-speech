@@ -32,7 +32,7 @@ If unsure who is speaking, politely confirm before continuing. Strictly avoid us
 """
 
 ## TTS Parameters
-TTS_CHOICE = 'coqui' # ["coqui", orpheus"]
+TTS_CHOICE = 'coqui' # ["coqui", "orpheus"]
 ORPHEUS_TTS_MODEL = "orpheus-3b-0.1-ft"
 ORPHEUS_TTS_VOICE = "leo" # ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"]
 ORPHEUS_TTS_TEMPERATURE = 0.5

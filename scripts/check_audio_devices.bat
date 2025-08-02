@@ -2,4 +2,4 @@
 
 call venv\Scripts\activate
 
-python ./scripts/check_audio_devices.py
+python scripts\check_audio_devices.py
