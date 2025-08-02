@@ -1,4 +1,3 @@
-from snac import SNAC
 import numpy as np
 import torch
 import asyncio
@@ -7,13 +6,6 @@ import queue
 import logging
 
 logger = logging.getLogger("speech_to_speech.tts_orpheus_decoder")
-
-# model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
-
-# # Check if CUDA is available and set device accordingly
-# snac_device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-# print(f"Using device: {snac_device}")
-# model = model.to(snac_device)
 
 
 def convert_to_audio(model, snac_device, multiframe, count):

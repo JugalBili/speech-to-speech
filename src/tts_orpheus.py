@@ -2,72 +2,22 @@
 import wave
 import logging
 import io
-import os
-import sys
-import requests
-import json
-import time
-import numpy as np
-import sounddevice as sd
 import threading
 import queue
 import asyncio
 from snac import SNAC
 from openai import OpenAI
+from config import *
 
 logger = logging.getLogger("speech_to_speech.tts_orpheus")
 
-# class TTSOrpheus:
-#   def __init__(self):
-#     self.model = "canopylabs/orpheus-tts-0.1-finetune-prod"
-#     self.client = OrpheusModel(model_name=self.model)
-#     self.voice = "tara"
-    
-#   def synthesize(self, text):
-#     wav_buffer = io.BytesIO()
-#     wav_file = wave.open(wav_buffer, 'wb')
-#     wav_file.setnchannels(1)
-#     wav_file.setsampwidth(2)
-#     wav_file.setframerate(24000)
-    
-#     audio_duration = 0
-  
-#     try:
-#       tokens = self.client.generate_speech(
-#         prompt=text,
-#         voice=self.voice,
-#         max_buffer_size=5000,
-#         top_p=0.95,
-#         temperature=0.7,
-#         repetition_penalty=1.3,
-#         # max_tokens=150
-#       )
-      
-#       total_frames = 0
-#       chunk_counter = 0
-#       for audio_chunk in tokens: # output streaming
-#         chunk_counter += 1
-#         frame_count = len(audio_chunk) // (wav_file.getsampwidth() * wav_file.getnchannels())
-#         total_frames += frame_count
-#         wav_file.writeframes(audio_chunk)
-#       duration = total_frames / wav_file.getframerate()
-      
-#       logger.debug("🎤 Speech synthesized!")
-
-#     finally:
-#       wav_file.close()
-
-#     return wav_buffer, audio_duration
-
-
 class TTSOrpheus:
-  def __init__(self, api, api_key, model):
+  def __init__(self, api, api_key):
     self.api = api
     self.api_key = api_key
-    self.model = model # "orpheus-3b-0.1-ft" # "canopylabs/orpheus-tts-0.1-finetune-prod"
-    # self.client = OrpheusModel(model_name=self.model)
-    self.voice = "Leo"
-    self.snac_device = "cuda"
+    self.model = ORPHEUS_TTS_MODEL
+    self.voice = ORPHEUS_TTS_VOICE
+    self.snac_device = DEVICE
     self.snac_model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval().to(self.snac_device)
 
     self.START_TOKEN_ID = 128259
@@ -195,11 +145,11 @@ class TTSOrpheus:
     response = self.client.completions.create(
       model=self.model,
       prompt=formatted_prompt,
-      temperature=0.5,
-      top_p=0.9,
+      temperature=ORPHEUS_TTS_TEMPERATURE,
+      top_p=ORPHEUS_TTS_TOP_P,
       stream=True,
-      max_tokens=2048,
-      extra_body={ "repeat_penalty": 1.1 }
+      max_tokens=ORPHEUS_TTS_MAX_TOKENS,
+      extra_body={ "repeat_penalty": ORPHEUS_TTS_REPEAT_PENALTY }
     )
 
     # Process the streamed response
@@ -207,25 +157,6 @@ class TTSOrpheus:
     for chunk in response:
       token_counter += 1
       yield chunk.choices[0].text
-      
-    # token_counter = 0
-    # for chunk in response:
-    #   line = line.decode('utf-8')
-    #   if line.startswith('data: '):
-    #       data_str = line[6:]  # Remove the 'data: ' prefix
-    #       if data_str.strip() == '[DONE]':
-    #           break
-              
-    #       try:
-    #           data = json.loads(data_str)
-    #           if 'choices' in data and len(data['choices']) > 0:
-    #               token_text = data['choices'][0].get('text', '')
-    #               token_counter += 1
-    #               if token_text:
-    #                   yield token_text
-    #       except json.JSONDecodeError as e:
-    #           print(f"Error decoding JSON: {e}")
-    #           continue
     
     logging.debug("Token generation complete")
     
@@ -247,32 +178,4 @@ class TTSOrpheus:
       wav_file.close()
       
     return wav_buffer, audio_duration
-    
-  
-    # try:
-    #   tokens = self.client.generate_speech(
-    #     prompt=text,
-    #     voice=self.voice,
-    #     max_buffer_size=5000,
-    #     top_p=0.95,
-    #     temperature=0.7,
-    #     repetition_penalty=1.3,
-    #     # max_tokens=150
-    #   )
-      
-    #   total_frames = 0
-    #   chunk_counter = 0
-    #   for audio_chunk in tokens: # output streaming
-    #     chunk_counter += 1
-    #     frame_count = len(audio_chunk) // (wav_file.getsampwidth() * wav_file.getnchannels())
-    #     total_frames += frame_count
-    #     wav_file.writeframes(audio_chunk)
-    #   duration = total_frames / wav_file.getframerate()
-      
-    #   logger.debug("🎤 Speech synthesized!")
-
-    # finally:
-    #   wav_file.close()
-
-    # return wav_buffer, audio_duration
   

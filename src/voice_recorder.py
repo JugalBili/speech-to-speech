@@ -7,6 +7,7 @@ import wave
 import io
 import struct
 import logging
+from config import *
 
 logger = logging.getLogger("speech_to_speech.voice_recording")
 
@@ -14,7 +15,7 @@ class Recorder:
   def __init__(self, PICOVOICE_KEY):
     self.porcupine = pvporcupine.create(
       access_key=PICOVOICE_KEY,
-      keywords=["picovoice"]
+      keywords=[WAKE_KEYWORD]
     )
 
     self.cobra = pvcobra.create(
@@ -22,18 +23,8 @@ class Recorder:
     )
   
     self.framelength =  self.porcupine.frame_length
-
-    for i, device in enumerate(PvRecorder.get_available_devices()):
-      print(f"{i+1}. {device}")
-
-    self.recorder_device = int(input("Choose Audio Device (1,2,etc...): "))
-    
-    for i, device in enumerate(PvSpeaker.get_available_devices()):
-      print(f"{i+1}. {device}")
-
-    self.speaker_device = int(input("Choose Speaker Device (1,2,etc...): "))
-
-    self.recorder = PvRecorder(frame_length=self.framelength, device_index=self.recorder_device-1)
+    self.recorder_device = AUDIO_IN_DEVICE
+    self.recorder = PvRecorder(frame_length=self.framelength, device_index=self.recorder_device)
 
 
   def record_wake_word(self):
@@ -56,7 +47,7 @@ class Recorder:
     wav_file.setparams((1, 2, self.recorder.sample_rate, self.recorder.frame_length, "NONE", "NONE"))
 
     frame_duration = self.framelength / self.recorder.sample_rate  # Typically 512 / 16000 = 0.032s
-    silence_threshold_sec = 1.0  # Change to 0.5 if you prefer
+    silence_threshold_sec = SILENCE_THRESHOLD # Change to 0.5 if you prefer
     silence_frames_required = int(silence_threshold_sec / frame_duration)
     print(silence_frames_required)
     silence_frame_count = 0
@@ -73,7 +64,7 @@ class Recorder:
         voice_prob = self.cobra.process(pcm)
         print(voice_prob)
 
-        if voice_prob <= 0.2:
+        if voice_prob <= VOICE_PROBABILITY:
           silence_frame_count += 1
         else:
           silence_frame_count = 0

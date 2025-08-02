@@ -4,14 +4,16 @@ import os
 import io
 import logging
 
-from logging_config import setup_logging
+from src.logging_config import setup_logging
 setup_logging()
 
-from voice_recorder import Recorder
-from stt_whisper import STTWhisper
-from llm_wrapper import LLMWrapper
-from tts_orpheus import TTSOrpheus
-from utils import save_wav_file, play_wav_file
+from src.voice_recorder import Recorder
+from src.stt_whisper import STTWhisper
+from src.llm_wrapper import LLMWrapper
+from src.tts_orpheus import TTSOrpheus
+from src.tts_coqui import TTSCoqui
+from src.utils import save_wav_file, play_wav_file
+from config import *
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 logger = logging.getLogger("speech_to_speech.s2s_pipeline")
@@ -19,18 +21,20 @@ logger = logging.getLogger("speech_to_speech.s2s_pipeline")
 
 def main():
   audio_recorder = Recorder(os.getenv("PICOVOICE_API_KEY"))
-  whisper = STTWhisper(vad_active=True, device="cuda")
+  whisper = STTWhisper(vad_active=True, device=DEVICE)
   llm = LLMWrapper(
     api=os.getenv("OPENAI_API"),
     api_key=os.getenv("OPENAI_API_KEY"),
-    model=os.getenv("LLM_MODEL")
-  )
-  orpheus = TTSOrpheus(
-    api=os.getenv("OPENAI_API"),
-    api_key=os.getenv("OPENAI_API_KEY"),
-    model=os.getenv("TTS_MODEL")
   )
   
+  if TTS_CHOICE == "coqui":
+    tts = TTSCoqui()
+  elif TTS_CHOICE == "orpheus":
+    tts = TTSOrpheus(
+      api=os.getenv("OPENAI_API"),
+      api_key=os.getenv("OPENAI_API_KEY"),
+    )
+    
   while True:
     logger.debug("🔊 Listening for wake word...")
     audio_recorder.record_wake_word()
@@ -66,7 +70,7 @@ def main():
     
     
     logger.debug("🎤 Synthesizing speech")
-    output_buffer, output_duration = orpheus.synthesize(response)
+    output_buffer, output_duration = tts.synthesize(response)
 
     output_buffer.seek(0)
     output_filename = "output.wav"
