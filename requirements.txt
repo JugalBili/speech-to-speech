@@ -19,3 +19,4 @@ onnxruntime-gpu
 sounddevice>=0.4.4
 snac>=1.2.1
 coqui-tts
+kokoro

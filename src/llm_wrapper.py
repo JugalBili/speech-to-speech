@@ -18,9 +18,11 @@ class LLMWrapper():
     self.max_tokens = int(MAX_TOKENS * 0.75)
     
     self.initial_prompt = INITIAL_PROMPT
-    self.initial_prompt += "Do not style your response using markdown formatting. For example, do not encapuslate words with asterisks or "
+    self.initial_prompt += "Do not style your response using markdown formatting. Note that you responses must be in a conversation format, thus not text fomatting is allowed to make the output look nice after it has been rendered."
     if TTS_CHOICE == "orpheus":
       self.initial_prompt += " Also, add paralinguistic elements like <laugh>, <chuckle>, <sigh>, <cough>, <sniffle>, <groan>, <yawn>, <gasp> or uhm for more human-like speech whenever it fits, but do not overdo it, please only add it when necessary and not often."
+    if TTS_CHOICE == "kokoro":
+      self.initial_prompt += "Here are some rules regarding how the output should be formatted such that it could work with text-to-speech. 1. Customize pronunciation with Markdown link syntax and /slashes/ like [Kokoro](/kˈOkəɹO/) 2. To adjust intonation, try punctuation ;:,.!?—…\"()“” or stress ˈ and ˌ 3. Lower stress [1 level](-1) or [2 levels](-2) 4.  Raise stress 1 level [or](+2) 2 levels (only works on less stressed, usually short words)"
     self.initial_prompt = self.initial_prompt.replace("\n", "")
     self.initial_prompt_length = len(self.initial_prompt.split(" "))
     
@@ -30,7 +32,7 @@ class LLMWrapper():
     
     
   def _load_convo_history(self):
-    logging.debug("📝 Loading conversation history")
+    logger.debug("Loading conversation history")
 
     chat_history_file = open(self.chat_history_filename, 'r', encoding="utf-8")
     self.global_chat_history = json.load(chat_history_file)["history"]
@@ -47,7 +49,7 @@ class LLMWrapper():
 
 
   def _write_chat_history(self):
-    logger.debug(f"💾 Saving conversation history")
+    logger.debug(f"Saving conversation history")
 
     chat_history_file = open(self.chat_history_filename, 'w', encoding="utf-8")
     json.dump({
@@ -64,6 +66,23 @@ class LLMWrapper():
     filtered_text = text[index:].replace("\n", "")
     
     return filtered_text
+
+  def _filter_markdown(self, text):
+    # Remove code blocks
+    filtered_text = re.sub(r"```.*?```", "", text, flags=re.DOTALL)
+    # Remove inline code
+    filtered_text = re.sub(r"`([^`]*)`", r"\1", filtered_text)
+    # Remove bold/italic markers
+    filtered_text = re.sub(r"(\*\*|__)(.*?)\1", r"\2", filtered_text)
+    filtered_text = re.sub(r"(\*|_)(.*?)\1", r"\2", filtered_text)
+    # Remove headers
+    filtered_text = re.sub(r"^#+\s*", "", filtered_text, flags=re.MULTILINE)
+    # Remove blockquotes
+    filtered_text = re.sub(r"^>\s*", "", filtered_text, flags=re.MULTILINE)
+    # Remove horizontal rules
+    filtered_text = re.sub(r"^-{3,}", "", filtered_text, flags=re.MULTILINE)
+
+    return filtered_text.strip()
   
   def _filter_emoji(self, text):
     emoji_pattern = re.compile("["
@@ -115,6 +134,7 @@ class LLMWrapper():
     print(response_text)
     response_text = self._filter_think(response_text)
     response_text = self._filter_emoji(response_text)
+    response_text = self._filter_markdown(response_text)
     
     response_length = len(response_text.split(" "))
     
@@ -132,7 +152,7 @@ class LLMWrapper():
     
     self._write_chat_history()
     
-    logging.warning("🤖 Response returned")
+    logger.debug("Response returned")
 
     return response_text
     

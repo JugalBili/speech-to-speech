@@ -19,7 +19,7 @@ class STTWhisper:
       vad_parameters=dict(min_silence_duration_ms=500),
       beam_size=5)
     
-    logger.debug("🌐 Speech Parsed!")
+    logger.debug("Speech Parsed!")
     
     return list(segments)
     

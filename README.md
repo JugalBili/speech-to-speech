@@ -13,26 +13,34 @@
 
 ## Table of Contents
 
-- [Requirements](#requirements)
-- [Installation - Windows](#installation---windows)
-  - [CUDA](#cuda)
-  - [CUDNN](#cudnn)
-  - [LM Studio](#lm-studio)
-  - [Espeak-ng](#espeak-ng)
-  - [PicoVoice](#picovoice)
-  - [Program Installation](#program-installation)
-- [Installation - Linux](#installation---linux)
-  - [CUDA and CUDNN](#cuda-and-cudnn)
-  - [LM Studio](#lm-studio-1)
-  - [Espeak-ng](#espeak-ng-1)
-  - [PicoVoice](#picovoice-1)
-  - [Program Installation](#program-installation-1)
-- [Execution](#execution)
-  - [Starting LM Studio](#starting-lm-studio)
-  - [Creating ENV file](#creating-env-file)
-  - [Editing Program Parameters](#editing-program-parameters)
-  - [Running Program](#running-program)
-- [Credits](#credits)
+- [Speech to Speech Pipeline](#speech-to-speech-pipeline)
+  - [Table of Contents](#table-of-contents)
+  - [Requirements](#requirements)
+  - [Installation - Windows](#installation---windows)
+    - [CUDA](#cuda)
+      - [Download](#download)
+      - [Environmental Variables](#environmental-variables)
+    - [CUDNN](#cudnn)
+      - [Download](#download-1)
+      - [Installation](#installation)
+    - [LM Studio](#lm-studio)
+    - [Espeak-ng](#espeak-ng)
+    - [PicoVoice](#picovoice)
+    - [Program Installation](#program-installation)
+  - [Installation - Linux](#installation---linux)
+    - [CUDA and CUDNN](#cuda-and-cudnn)
+    - [LM Studio](#lm-studio-1)
+    - [Espeak-ng](#espeak-ng-1)
+    - [PicoVoice](#picovoice-1)
+    - [Program Installation](#program-installation-1)
+  - [Execution](#execution)
+    - [Starting LM Studio](#starting-lm-studio)
+    - [Creating ENV file](#creating-env-file)
+    - [Editing Program Parameters](#editing-program-parameters)
+      - [Audio Settings](#audio-settings)
+      - [TTS Choice](#tts-choice)
+    - [Running Program](#running-program)
+  - [Credits](#credits)
 
 
 ## Requirements
@@ -233,7 +241,7 @@ bash run.sh
 
 Note that the first time program is run, it will take longer to initialize since TTS and STT engines need to download their models.
 
-All subsequent runs will take slightly longer to initialize.
+All subsequent runs will take slightly quicker to initialize.
 
 ## Credits
 - [canopyai/Orpheus-TTS](https://github.com/canopyai/Orpheus-TTS)

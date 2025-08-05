@@ -31,7 +31,7 @@ def save_wav_file(wav_bytes, wav_filename):
     # Write the frames to the output file
     out_wav.writeframes(frames)
 
-  logger.debug(f"💾 Audio successfully saved to {wav_filename}")
+  logger.debug(f"Audio successfully saved to {wav_filename}")
   
 def play_wav_file(wav_bytes):
   
@@ -52,12 +52,12 @@ def play_wav_file(wav_bytes):
   num_samples = wav_file.getnframes()
   
   if bits_per_sample != 8 and bits_per_sample != 16 and bits_per_sample != 24 and bits_per_sample != 32:
-    logging.error(f"Unsupported bits per sample: {bits_per_sample}")
+    logger.error(f"Unsupported bits per sample: {bits_per_sample}")
     wav_file.close()
     exit()
 
   if num_channels != 1:
-    logging.error("WAV file must have a single channel (MONO)")
+    logger.error("WAV file must have a single channel (MONO)")
     wav_file.close()
     exit()
 
@@ -96,7 +96,7 @@ def play_wav_file(wav_bytes):
           written_length = speaker.write(pcm_sublist[total_written_length:])
           total_written_length += written_length
 
-  logging.debug("🔊Waiting for audio to finish...")
+  logger.debug("Waiting for audio to finish...")
 
   completion_event = threading.Event()
   worker_thread = threading.Thread(target=worker_function, args=(speaker, completion_event))
@@ -106,5 +106,5 @@ def play_wav_file(wav_bytes):
 
   speaker.stop()
 
-  logging.debug("🔊 Finished playing audio...")
+  logger.debug("Finished playing audio...")
   wav_file.close()

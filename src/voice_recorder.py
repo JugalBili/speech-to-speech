@@ -36,7 +36,7 @@ class Recorder:
         pcm = np.array(frame, dtype=np.int16)
         keyword_index = self.porcupine.process(pcm)
         if keyword_index >= 0:
-          logger.debug("🔊 Wake word detected!")
+          logger.debug("Wake word detected!")
           break   
     finally:
       self.recorder.stop()      
@@ -72,7 +72,7 @@ class Recorder:
         print(silence_frame_count)
 
         if silence_frame_count >= silence_frames_required:
-          logger.debug("🔇 Silence detected, stopping recording")
+          logger.debug("Silence detected, stopping recording")
           break
 
     finally:

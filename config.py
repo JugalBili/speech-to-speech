@@ -14,7 +14,7 @@ VOICE_PROBABILITY = 0.2 # probability threshold of what is considered silence
 # LLM Parameters
 MAX_TOKENS = 7000 # depends on the model, enter lower value than max recomended 
 LLM_MODEL = "josiefied-qwen3-8b-abliterated-v1"
-ENABLE_THINK = False # Prevents model from reasoning, only works with Qwen3 models
+ENABLE_THINK = True # Prevents model from reasoning, only works with Qwen3 models
 TEMPERATURE = 0.7 # only modify if you know what you are doing
 TOP_P = 0.95 # only modify if you know what you are doing
 INITIAL_PROMPT = """
@@ -32,7 +32,7 @@ If unsure who is speaking, politely confirm before continuing. Strictly avoid us
 """
 
 ## TTS Parameters
-TTS_CHOICE = 'coqui' # ["coqui", "orpheus"]
+TTS_CHOICE = 'kokoro' # ["coqui", "orpheus", "kokoro"]
 ORPHEUS_TTS_MODEL = "orpheus-3b-0.1-ft"
 ORPHEUS_TTS_VOICE = "leo" # ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"]
 ORPHEUS_TTS_TEMPERATURE = 0.5
@@ -42,3 +42,5 @@ ORPHEUS_TTS_REPEAT_PENALTY = 1.1
 COQUI_TTS_MODEL = "tts_models/en/vctk/vits" # "tts_models/multilingual/multi-dataset/xtts_v2" 
 COQUI_TTS_REFERENCE_WAV = "xtts_reference.wav" # must be wav file
 COQUI_TTS_SPEAKER = "p234"
+KOKORO_TTS_VOICE = "bm_daniel" # ["af_heart", "af_bella", "af_nicole", "am_fenrir", "am_michael", "am_puck", "bf_emma", "bf_isabella", "bm_george", "bm_fable", "bm_daniel"]
+KOKORO_TTS_LANG = "b" # "a" for american, "b" for british (must match voice)
