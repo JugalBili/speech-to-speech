@@ -22,7 +22,7 @@ class LLMWrapper():
     if TTS_CHOICE == "orpheus":
       self.initial_prompt += " Also, add paralinguistic elements like <laugh>, <chuckle>, <sigh>, <cough>, <sniffle>, <groan>, <yawn>, <gasp> or uhm for more human-like speech whenever it fits, but do not overdo it, please only add it when necessary and not often."
     if TTS_CHOICE == "kokoro":
-      self.initial_prompt += "Here are some rules regarding how the output should be formatted such that it could work with text-to-speech. 1. Customize pronunciation with Markdown link syntax and /slashes/ like [Kokoro](/kˈOkəɹO/) 2. To adjust intonation, try punctuation ;:,.!?—…\"()“” or stress ˈ and ˌ 3. Lower stress [1 level](-1) or [2 levels](-2) 4.  Raise stress 1 level [or](+2) 2 levels (only works on less stressed, usually short words)"
+      self.initial_prompt += "Here are some rules regarding how the output should be formatted such that it could work with text-to-speech. 1. To adjust intonation, try punctuation ;:,.!?—…\"()“” or stress ˈ and ˌ"
     self.initial_prompt = self.initial_prompt.replace("\n", "")
     self.initial_prompt_length = len(self.initial_prompt.split(" "))
     
