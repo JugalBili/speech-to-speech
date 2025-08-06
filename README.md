@@ -8,11 +8,14 @@
  - LLM: Returns a responce to your prompt
  - TTS: Synthesizes LLM output to speech
 
+
 ![Pipeline Diagram](./images/pipeline.png)
 
+> TODO:
+>  - Web-search capabilities to allow local LLM to get up-to-date information
+>  - Implement a RAG as knowledge base
 
 ## Table of Contents
-
 - [Speech to Speech Pipeline](#speech-to-speech-pipeline)
   - [Table of Contents](#table-of-contents)
   - [Requirements](#requirements)
@@ -248,6 +251,6 @@ All subsequent runs will take slightly quicker to initialize.
 - [Deathdadev/Orpheus-Speech-PyPi](https://github.com/Deathdadev/Orpheus-Speech-PyPi)
 - [coqui-ai/TTS](https://github.com/coqui-ai/TTS)
 - [SYSTRAN/faster-whisper](https://github.com/SYSTRAN/faster-whisper)
-
+- [hexgrad/kokoro](https://github.com/hexgrad/kokoro)
 
 
