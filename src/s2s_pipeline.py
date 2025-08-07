@@ -14,10 +14,19 @@ from src.tts_orpheus import TTSOrpheus
 from src.tts_coqui import TTSCoqui
 from src.tts_kokoro import TTSKokoro
 from src.utils import save_wav_file, play_wav_file
+from src.web_search import WebSearcher
+from src.rag_langchain import RAGLangchain
 from config import *
+import threading
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 logger = logging.getLogger("speech_to_speech.s2s_pipeline")
+
+
+def searching_speech_worker(tts, text):
+  output_buffer, output_duration = tts.synthesize(text)
+  output_buffer.seek(0)
+  play_wav_file(output_buffer)
 
 
 def main():
@@ -27,6 +36,8 @@ def main():
     api=os.getenv("OPENAI_API"),
     api_key=os.getenv("OPENAI_API_KEY"),
   )
+  websearch = WebSearcher()
+  rag = RAGLangchain()
   
   if TTS_CHOICE == "coqui":
     tts = TTSCoqui()
@@ -63,14 +74,52 @@ def main():
     logger.debug("Running Speech-To-Text")
     command_buffer.seek(0)
     text_segments = whisper.transcribe(command_buffer)
-    text = "/n".join([segment.text for segment in text_segments])
+    text = "\n".join([segment.text for segment in text_segments])
     logger.info(text)
     
-    # text = "Hello, how are you doing today?"
+    # text = "test"  
+
+    decision, topic = llm.decide_websearch(text)
+    logger.debug(f"Websearch recommended?: {decision} - {topic}")
+    context = ""
+
+    if decision == "yes":
+      logger.debug(f"Querying RAG")
+      query_results = rag.query(topic)
+      # add extra 0 in case RAG is empty and returns empty list
+      query_result_scores = [query["score"] for query in query_results] + [0]
+
+      if  max(query_result_scores) < RAG_CONFIDENCE_THRESHOLD:
+        logger.debug(f"Not enough confident info in RAG, requires search")
+        
+        # PLay search speech while web search occurs
+        speech_thread = threading.Thread(target=searching_speech_worker, args=(tts, f"Searching the web for {topic}"))
+        speech_thread.start()
+        
+        websites = websearch.ddg_search(text)
+        # print(websites)
+        logger.debug(f"Fetching website contents")
+        web_contents = websearch.fetch_content(websites)
+
+        # print(web_contents)
+
+        logger.debug(f"Adding contents to RAG")
+        for document in web_contents:
+          rag.add_document(document)
+
+        logger.debug(f"Querying RAG Again")
+        query_results = rag.query(topic)
+        logger.info(query_results)
+
+        speech_thread.join()
+  
+    logger.debug(f"Info in RAG exists, no search needed")
     
-    
+    for result in query_results:
+      context += result["content"]
+
     logger.debug("Sending to LLM")
-    response = llm.send_to_llm(text)
+    response = llm.send_to_llm(text, context)
     logger.info(response)
     
     

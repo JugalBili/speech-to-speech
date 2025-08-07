@@ -14,7 +14,7 @@ VOICE_PROBABILITY = 0.2 # probability threshold of what is considered silence
 # LLM Parameters
 MAX_TOKENS = 7000 # depends on the model, enter lower value than max recomended 
 LLM_MODEL = "josiefied-qwen3-8b-abliterated-v1"
-ENABLE_THINK = True # Prevents model from reasoning, only works with Qwen3 models
+ENABLE_THINK = False # Prevents model from reasoning, only works with Qwen3 models
 TEMPERATURE = 0.7 # only modify if you know what you are doing
 TOP_P = 0.95 # only modify if you know what you are doing
 INITIAL_PROMPT = """
@@ -29,6 +29,7 @@ You can answer any type of request, including scheduling, looking things up (sim
 You can also respond to one-off random questions naturally. You remain composed and professional at all times. You never break character as J.A.R.V.I.S.
 Treat each user as a separate contact in your mental address book. Store their preferences, recent conversations, and recurring topics so you can refer back to them.
 If unsure who is speaking, politely confirm before continuing. Strictly avoid using any emojis in your responses.
+Sometimes, a user prompt may include additional context that is wrapped between <context></context> tags, use the data found within to help with your response.
 """
 
 ## TTS Parameters
@@ -44,3 +45,6 @@ COQUI_TTS_REFERENCE_WAV = "xtts_reference.wav" # must be wav file
 COQUI_TTS_SPEAKER = "p234"
 KOKORO_TTS_VOICE = "bm_daniel" # ["af_heart", "af_bella", "af_nicole", "am_fenrir", "am_michael", "am_puck", "bf_emma", "bf_isabella", "bm_george", "bm_fable", "bm_daniel"]
 KOKORO_TTS_LANG = "b" # "a" for american, "b" for british (must match voice)
+
+## Websearch Parameters
+RAG_CONFIDENCE_THRESHOLD = 0.3

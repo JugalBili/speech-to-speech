@@ -20,3 +20,12 @@ sounddevice>=0.4.4
 snac>=1.2.1
 coqui-tts
 kokoro
+ddgs
+fandom-py
+wikipedia
+playwright
+beautifulsoup4
+langchain
+langchain-community
+sentence-transformers
+chromadb 

@@ -26,6 +26,28 @@ class LLMWrapper():
     self.initial_prompt = self.initial_prompt.replace("\n", "")
     self.initial_prompt_length = len(self.initial_prompt.split(" "))
     
+    self.websearch_classifier_prompt = """
+    You are a classifier that determines whether a user’s request requires an external web search.
+
+    Rules for deciding:
+    - Answer "yes" if the prompt is about facts, knowledge, history, current events, or time-sensitive information
+    - Answer "no" if the request can be answered without external knowledge (general conversation, opinions, jokes, instructions, etc.).
+    - If answering "yes", provide the topic to be searched for in no more than 5 words.  
+    - If answering "no", the main topic should be "None".
+    - Correct the spelling of words in the main topic if necessary as the input prompt it the output of speech-to-text, and the text will be slightly off.
+
+    Output format (no extra words, no punctuation except as shown):  
+    `<yes/no>+-+<main topic>`
+
+    Examples:
+    - "How tall is the Empire state?" → `yes+-+Empire State Height`
+    - "What is the price of Bitcoin currently?" → `yes+-+Bitcoin Price`
+    - "How are you doing today?" → `no+-+None`
+    - "Explain what a black hole is." → `yes+-+What is Black Hole`
+    - "Write me a poem about cats." → `no+-+None`
+    - "Tell me the weather in Tokyo." → `yes+-+Tokyo Weather`
+    """
+    
     self.client = OpenAI(base_url=self.api, api_key=self.api_key)
     
     self._load_convo_history()
@@ -45,7 +67,7 @@ class LLMWrapper():
       self.current_chat_history_length += cur_message["length"]
       index -= 1
       
-    print(self.current_chat_history)
+    # print(self.current_chat_history)
 
 
   def _write_chat_history(self):
@@ -99,8 +121,31 @@ class LLMWrapper():
     
     return filtered_text
 
+  def decide_websearch(self, text):
+    prompt_messages = [
+      {"role": "system", "content": self.websearch_classifier_prompt},
+      {"role": "user", "content": text}
+    ]
+    
+    response = self.client.chat.completions.create(
+      model=self.model,
+      messages=prompt_messages,
+      temperature=TEMPERATURE,
+      top_p=TOP_P,
+      # max_tokens=150,
+    ).choices[0]
+    
+    response_text = response.message.content
+    response_text = self._filter_think(response_text)
+    response_text = self._filter_emoji(response_text)
+    response_text = self._filter_markdown(response_text)
+    
+    require_search, topic = response_text.split("+-+")
 
-  def send_to_llm(self, text):
+    return require_search.lower(), topic.lower()
+
+
+  def send_to_llm(self, text, context = ""):
     if not ENABLE_THINK:
       text = text + " /no_think" # disable reasoning
 
@@ -119,6 +164,11 @@ class LLMWrapper():
     # print(json.dumps(self.current_chat_history, indent=2))
     prompt_messages = [{"role": "system", "content": self.initial_prompt}]
     prompt_messages.extend(self.current_chat_history)
+    
+    # if context exists, add to user prompt
+    if context != "":
+      prompt_messages[-1]["content"] =  "<context>"+ context.replace("\n", "") + "</context>\n\n" + prompt_messages[-1]["content"]
+    
     # print(prompt_messages)
     
     response = self.client.chat.completions.create(
@@ -129,9 +179,7 @@ class LLMWrapper():
       # max_tokens=150,
     ).choices[0]
     
-    # print(response)
     response_text = response.message.content
-    print(response_text)
     response_text = self._filter_think(response_text)
     response_text = self._filter_emoji(response_text)
     response_text = self._filter_markdown(response_text)

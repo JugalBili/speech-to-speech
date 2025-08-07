@@ -6,3 +6,5 @@ pip install accelerate
 pip install -r requirements.txt
 
 pip install --upgrade numpy==1.26.4
+
+playwright install frefox

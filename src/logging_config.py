@@ -27,8 +27,8 @@ def setup_logging(level=logging.DEBUG):
   if not project_logger.handlers:
       project_logger.addHandler(handler)
       
-  logging.getLogger("ctranslate2").setLevel(logging.CRITICAL)
-  logging.getLogger("transformers").setLevel(logging.CRITICAL)
-  logging.getLogger("kokoro").setLevel(logging.CRITICAL)
-  # Ignore all warnings
-  warnings.filterwarnings("ignore")
+#   logging.getLogger("ctranslate2").setLevel(logging.CRITICAL)
+#   logging.getLogger("transformers").setLevel(logging.CRITICAL)
+#   logging.getLogger("kokoro").setLevel(logging.CRITICAL)
+#   # Ignore all warnings
+#   warnings.filterwarnings("ignore")
