@@ -2,9 +2,10 @@
 
  This repo consists of a fully locally hosted AI voice assistant that transcribes speech in real time, processes natural conversations with a local LLM, and responds using realistic text-to-speech.
 
- There are 4 main components to this pipeline
+ There are 5 main components to this pipeline
  - Wake Word: Requires an activation word to start pipeline (e.g. "Hey PicoVoice")
  - STT: Transcribes your voice into text
+ - Websearch + RAG: Search the web for info and store info in a RAG
  - LLM: Returns a responce to your prompt
  - TTS: Synthesizes LLM output to speech
 
@@ -12,8 +13,7 @@
 ![Pipeline Diagram](./images/pipeline.png)
 
 > TODO:
->  - Web-search capabilities to allow local LLM to get up-to-date information
->  - Implement a RAG as knowledge base
+>  - Polish websearch and RAG
 
 ## Table of Contents
 - [Speech to Speech Pipeline](#speech-to-speech-pipeline)
