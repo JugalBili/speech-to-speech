@@ -82,6 +82,7 @@ def main():
     decision, topic = llm.decide_websearch(text)
     logger.debug(f"Websearch recommended?: {decision} - {topic}")
     context = ""
+    query_results = []
 
     if decision == "yes":
       logger.debug(f"Querying RAG")

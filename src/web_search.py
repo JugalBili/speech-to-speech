@@ -167,13 +167,15 @@ class WebSearcher:
       logger.debug("Search started")
       try: 
         ddgs_client = DDGS(timeout=2)
-        results = ddgs_client.text(request, region="us-en", max_results=10)
+        results = ddgs_client.text(request, region="us-en", max_results=10, backend="chrome,duckduckgo,brave")
         retry_search = False  
         
       except DDGSException as e:
         logger.error(e)
         logger.debug("Retrying search")
-      
+
+    logger.info(results)
+
     results = [entry["href"] for entry in results]
     
     return results

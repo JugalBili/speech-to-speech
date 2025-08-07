@@ -13,7 +13,7 @@ class TTSKokoro:
     torch.backends.cudnn.benchmark = False  # prevents unsupported plan attempts
     torch.backends.cuda.matmul.allow_tf32 = True  # small perf boost on Ampere+
     
-    self.client = KPipeline(lang_code=KOKORO_TTS_LANG, device=DEVICE) # lang code a = american, b = british
+    self.client = KPipeline(lang_code=KOKORO_TTS_LANG, device=DEVICE, repo_id='hexgrad/Kokoro-82M') # lang code a = american, b = british
     self.voice = KOKORO_TTS_VOICE
     self.samplerate = 24000
     
@@ -27,7 +27,7 @@ class TTSKokoro:
     audio_duration = 0
     
     try:
-      generator = self.client(text, voice=self.voice)
+      generator = self.client(text, voice=self.voice, speed=1.3 if self.voice == "af_nicole" else 1.0)
       
       for _, _,audio in generator:
         audio = audio if isinstance(audio, torch.Tensor) else torch.from_numpy(audio).float()

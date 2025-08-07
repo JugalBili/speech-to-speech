@@ -124,7 +124,7 @@ class LLMWrapper():
   def decide_websearch(self, text):
     prompt_messages = [
       {"role": "system", "content": self.websearch_classifier_prompt},
-      {"role": "user", "content": text}
+      {"role": "user", "content": text + "/no_think"}
     ]
     
     response = self.client.chat.completions.create(
