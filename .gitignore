@@ -177,5 +177,5 @@ pyrightconfig.json
 *.wav
 data/chat_history.json
 !/xtts_reference.wav
-
+/test
 # End of https://www.toptal.com/developers/gitignore/api/python
