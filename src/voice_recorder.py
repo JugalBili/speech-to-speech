@@ -52,6 +52,7 @@ class Recorder:
     silence_frames_required = int(silence_threshold_sec / frame_duration)
     print(silence_frames_required)
     silence_frame_count = 0
+    total_frame_count = 0
 
     try:
       self.recorder.start()
@@ -59,6 +60,7 @@ class Recorder:
       while True:
         frame = self.recorder.read()
         pcm = np.array(frame, dtype=np.int16)
+        total_frame_count += pcm.size
 
         wav_file.writeframes(struct.pack("h" * len(frame), *frame))
 
@@ -80,7 +82,9 @@ class Recorder:
       self.recorder.stop()
       wav_file.close()
 
-    return wav_buffer
+    duration_sec = total_frame_count / self.recorder.sample_rate
+  
+    return wav_buffer, duration_sec
       
       
       

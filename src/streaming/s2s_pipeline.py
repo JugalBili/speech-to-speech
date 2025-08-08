@@ -8,6 +8,7 @@ from multiprocessing.synchronize import Event as EventClass
 from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
 from multiprocessing.queues import Queue as QueueClass
 import threading
+import time
 
 from src.streaming.logging_config import setup_logging, start_listener, stop_listener, setup_worker_logging, get_logger, get_log_queue
 from src.streaming.voice_recorder import Recorder
@@ -37,49 +38,78 @@ def wake_word_stt_worker(
   
   audio_recorder = Recorder()
   whisper = STTWhisper(vad_active=True, device=DEVICE)
+  
+  first_loop = True
+  ask_wakeword = True
+  last_command_time = 0
+  prev_text = ""
 
   voice_setup_event.set()
   logger.debug("Waiting for Pipeline to setup")
   pipeline_setup_event.wait()
 
   while True:
-    logger.debug("Listening for wake word...")
-    audio_recorder.record_wake_word()
+    if (time.time() - last_command_time) > WAKEWORD_RESET_TIME:
+      logger.warning("wakeword reset")
+      ask_wakeword = True
 
-    if not command_queue.empty():
+    if ask_wakeword:
+      logger.debug("Listening for wake word...")
+      audio_recorder.record_wake_word()
+      last_command_time = time.time()
+      ask_wakeword = False
+
+    if ask_wakeword and not command_queue.empty():
       # If queue is not empty, it means that pipeline is still processing it
       # increment interrupt count
+      logger.warning("interrupt fired")
       interrupt_count.value += 1
 
     logger.debug("Listening for command...")
-    command_buffer = audio_recorder.record_command()
+    command_buffer, command_duration = audio_recorder.record_command(ask_wakeword, command_queue, interrupt_count)
     
     command_buffer.seek(0, io.SEEK_END)
     command_size = command_buffer.tell() # size of command buffer in bytes
     command_buffer.seek(0)
     
+    num_samples = command_size // 2
+    if num_samples < audio_recorder.porcupine.sample_rate * (VOICE_THRESHOLD + SILENCE_THRESHOLD):
+        logger.debug("No speech detected.")
+        continue
+    
     output_filename = "command.wav"
     logger.debug("Saving wav file.")
     save_wav_file(command_buffer, output_filename, logger)
-    
 
     logger.debug("Running Speech-To-Text")
     command_buffer.seek(0)
     text_segments = whisper.transcribe(command_buffer)
-    text = "\n".join([segment.text for segment in text_segments])
+    text = ", ".join([segment.text for segment in text_segments])
     logger.info(text)
 
     if not text:
       logger.debug("No command detected")
       continue
-    
+
+    continuation = False
+    # if time between this command and the previous one is < threashold, then we treet as continuation of previous prompt
+    if WAKEWORD_RESET_TIME > 0 and not first_loop and (time.time() - command_duration - last_command_time) < CONTINUATION_THRESHOLD:
+      continuation = True
+      text = prev_text + ", " + text
+
+    if not ask_wakeword:
+      last_command_time = time.time()
+
     # command_buffer.seek(0)
     # play_wav_file(command_buffer, logger, interrupt_count)
-    
+
+    prev_text = text
+
     # Add 2 events, 1 to determine when pipeline starts working, and 1 to determine when pipeline stops working on  queue
-    command_queue.put({"text": text, "marker": "start"})
-    command_queue.put({"text": text, "marker": "finish"})
-  
+    command_queue.put({"text": text, "marker": "start", "continuation": continuation})
+    command_queue.put({"text": text, "marker": "finish", "continuation": continuation})
+    first_loop = False
+    
 
 def websearch_llm_tts_worker(
   interrupt_count : SynchronizedClass,
@@ -109,7 +139,7 @@ def websearch_llm_tts_worker(
     logger.warning(f"Pipeline Interrupted: {info}")
     llm.interrupt_context.append(text)
     
-  def searching_speech_worker(tts, text):
+  def searching_speech_worker(tts, text, interrupt_count):
     output_buffer, output_duration = tts.synthesize(text)
     output_buffer.seek(0)
     play_wav_file(output_buffer, logger, interrupt_count)
@@ -124,8 +154,13 @@ def websearch_llm_tts_worker(
       logger.debug(work)
       text = work["text"]
       marker = work["marker"]
+      continuation = work["continuation"]
       
       if marker == "start":
+        
+        if continuation:
+          llm.interrupt_context.pop()
+
         # run core pipeline
         if interrupt_count.value > 0:
           interrupt_actions(text, info="before pipeline start")
@@ -146,7 +181,7 @@ def websearch_llm_tts_worker(
           logger.debug(f"Not enough confident info in RAG, decide search")
           decision, topic = llm.decide_websearch(text)
           if interrupt_count.value > 0:
-            interrupt_actions(text, info="=Decide websearch")
+            interrupt_actions(text, info="Decide websearch")
             continue
           logger.debug(f"Websearch recommended?: {decision} - {topic}")
 

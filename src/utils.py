@@ -3,6 +3,7 @@ import wave
 import array
 import threading
 from pvspeaker import PvSpeaker
+from config import *
 
 logger = logging.getLogger("speech_to_speech.s2s_pipeline")
 
@@ -65,7 +66,7 @@ def play_wav_file(wav_bytes):
     sample_rate=sample_rate,
     bits_per_sample=bits_per_sample,
     buffer_size_secs=20,
-    device_index=0
+    device_index=AUDIO_OUT_DEVICE
   )
   print("pvspeaker version: %s" % speaker.version)
   print("Using device: %s" % speaker.selected_device)

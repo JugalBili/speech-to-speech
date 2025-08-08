@@ -34,7 +34,7 @@ class TTSKokoro:
         audio = audio.numpy()
         audio *= 32767
         
-        audio_duration = len(audio) / 24000 
+        audio_duration = len(audio) / self.samplerate
         wav_Data = audio.astype(np.int16, copy=False)
         wav_file.writeframes(wav_Data.tobytes())
 

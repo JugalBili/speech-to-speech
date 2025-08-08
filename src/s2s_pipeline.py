@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import os
 import io
 import logging
+import time
 
 from src.logging_config import setup_logging
 setup_logging()
@@ -43,20 +44,29 @@ def main():
   elif TTS_CHOICE == "kokoro":
     tts = TTSKokoro()
     
+  ask_wakeword = True
+  last_command_time = 0
+   
   while True:
-    logger.debug("Listening for wake word...")
-    audio_recorder.record_wake_word()
+    if (time.time() - last_command_time) > WAKEWORD_RESET_TIME:
+      ask_wakeword = True
+
+    if ask_wakeword:  
+      logger.debug("Listening for wake word...")
+      audio_recorder.record_wake_word()
+      last_command_time = time.time()
+      ask_wakeword = False
     
     
     logger.debug("Listening for command...")
-    command_buffer = audio_recorder.record_command()
+    command_buffer, command_duration = audio_recorder.record_command()
     
     command_buffer.seek(0, io.SEEK_END)
     command_size = command_buffer.tell() # size of command buffer in bytes
     command_buffer.seek(0)
     
     num_samples = command_size // 2
-    if num_samples < audio_recorder.porcupine.sample_rate * 2:
+    if num_samples < audio_recorder.porcupine.sample_rate * (VOICE_THRESHOLD + SILENCE_THRESHOLD):
         logger.debug("No speech detected.")
         continue
     
@@ -68,8 +78,15 @@ def main():
     logger.debug("Running Speech-To-Text")
     command_buffer.seek(0)
     text_segments = whisper.transcribe(command_buffer)
-    text = "\n".join([segment.text for segment in text_segments])
+    text = ", ".join([segment.text for segment in text_segments])
     logger.info(text)
+    
+    if not text:
+      logger.debug("No command detected")
+      continue
+   
+    if not ask_wakeword:
+      last_command_time = time.time()
     
     # text = "test"  
 

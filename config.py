@@ -9,7 +9,12 @@ PIPELINE = "interrupt" ## ["normal", "interrupt"]
 # Voice Recorder Parameters
 WAKE_KEYWORD = "picovoice" # either 'picovoice' or 'bumblbee'
 SILENCE_THRESHOLD = 1.0 # seconds of silence to stop recording
-VOICE_PROBABILITY = 0.2 # probability threshold of what is considered silence
+VOICE_PROBABILITY = 0.35 # probability threshold of what is considered silence
+VOICE_THRESHOLD = 0.25 # Determines how much TOTAL speech (not continuous) is required for a valid command
+
+# Natural Conversation Parameters
+WAKEWORD_RESET_TIME = 45 # No wakeword needed unless no follow up command in WAKEWORD_RESET_TIME seconds. 0 = disable natural conversation
+CONTINUATION_THRESHOLD = 3.0 # Number of seconds in which another command is considered an extention to previous command. Only matters then WAKEWORD_RESET_TIME > 0
 
 
 # LLM Parameters

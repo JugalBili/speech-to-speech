@@ -18,7 +18,7 @@ class TTSKokoro:
     self.client = KPipeline(lang_code=KOKORO_TTS_LANG, device=DEVICE, repo_id='hexgrad/Kokoro-82M') # lang code a = american, b = british
     self.voice = KOKORO_TTS_VOICE
     self.samplerate = 24000
-    
+ 
   def synthesize(self, text):
     wav_buffer = io.BytesIO()
     wav_file = wave.open(wav_buffer, 'wb')
@@ -39,7 +39,7 @@ class TTSKokoro:
         audio = audio.numpy()
         audio *= 32767
         
-        audio_duration = len(audio) / 24000 
+        audio_duration = len(audio) / self.samplerate
         wav_Data = audio.astype(np.int16, copy=False)
         wav_file.writeframes(wav_Data.tobytes())
 
