@@ -175,7 +175,7 @@ pyrightconfig.json
 
 # Project files
 *.wav
-chat_history.json
+# data/chat_history.json
 !/xtts_reference.wav
 
 # End of https://www.toptal.com/developers/gitignore/api/python

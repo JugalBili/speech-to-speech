@@ -10,10 +10,10 @@ import logging
 import os
 from config import *
 
-logger = logging.getLogger("speech_to_speech.voice_recording")
 
 class Recorder:
   def __init__(self):
+    self.logger = logging.getLogger("speech_to_speech.voice_recording")
     self.porcupine = pvporcupine.create(
       access_key=os.getenv("PICOVOICE_API_KEY"),
       keywords=[WAKE_KEYWORD]
@@ -37,7 +37,7 @@ class Recorder:
         pcm = np.array(frame, dtype=np.int16)
         keyword_index = self.porcupine.process(pcm)
         if keyword_index >= 0:
-          logger.debug("Wake word detected!")
+          self.logger.debug("Wake word detected!")
           break   
     finally:
       self.recorder.stop()      
@@ -73,7 +73,7 @@ class Recorder:
         print(silence_frame_count)
 
         if silence_frame_count >= silence_frames_required:
-          logger.debug("Silence detected, stopping recording")
+          self.logger.debug("Silence detected, stopping recording")
           break
 
     finally:

@@ -9,11 +9,13 @@ from snac import SNAC
 from openai import OpenAI
 from config import *
 import os
-
-logger = logging.getLogger("speech_to_speech.tts_orpheus")
+from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
 
 class TTSOrpheus:
-  def __init__(self):
+  def __init__(self, interrupt_count: SynchronizedClass):
+    self.logger = logging.getLogger("speech_to_speech.tts_orpheus")
+    self.interrupt_count = interrupt_count
+
     self.api = os.getenv("OPENAI_API")
     self.api_key = os.getenv("OPENAI_API_KEY")
     self.model = ORPHEUS_TTS_MODEL
@@ -156,6 +158,9 @@ class TTSOrpheus:
     # Process the streamed response
     token_counter = 0
     for chunk in response:
+      if self.interrupt_count.value > 0:
+        return None
+
       token_counter += 1
       yield chunk.choices[0].text
     
@@ -173,8 +178,10 @@ class TTSOrpheus:
     
     try:
       speech_token_generator = self._generate_tokens_from_api(text)
+      if self.interrupt_count.value > 0:
+        return None, None
       audio_segments, audio_duration = self._tokens_decoder_sync(speech_token_generator, wav_file)
-      
+
     finally:
       wav_file.close()
       

@@ -3,6 +3,7 @@
 DEVICE = "cuda" # either 'cuda' or 'cpu'
 AUDIO_IN_DEVICE = 0  # run scripts/check_audio_devices.sh
 AUDIO_OUT_DEVICE = 0 # run scripts/check_audio_devices.sh
+PIPELINE = "interrupt" ## ["normal", "interrupt"]
 
 
 # Voice Recorder Parameters
@@ -29,7 +30,8 @@ You can answer any type of request, including scheduling, looking things up (sim
 You can also respond to one-off random questions naturally. You remain composed and professional at all times. You never break character as J.A.R.V.I.S.
 Treat each user as a separate contact in your mental address book. Store their preferences, recent conversations, and recurring topics so you can refer back to them.
 If unsure who is speaking, politely confirm before continuing. Strictly avoid using any emojis in your responses.
-Sometimes, a user prompt may include additional context that is wrapped between <context></context> tags, use the data found within to help with your response.
+A user prompt may include additional context that is wrapped between <context></context> tags, use the data found within to help with your response.
+A user prompt may also include multiple <interrupt></interrupt> tags, the data between the tags consist of previous user prompts that the user interrupted when you were answering them.
 """
 
 ## TTS Parameters

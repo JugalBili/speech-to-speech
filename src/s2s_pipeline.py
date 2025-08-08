@@ -30,22 +30,16 @@ def searching_speech_worker(tts, text):
 
 
 def main():
-  audio_recorder = Recorder(os.getenv("PICOVOICE_API_KEY"))
+  audio_recorder = Recorder()
   whisper = STTWhisper(vad_active=True, device=DEVICE)
-  llm = LLMWrapper(
-    api=os.getenv("OPENAI_API"),
-    api_key=os.getenv("OPENAI_API_KEY"),
-  )
+  llm = LLMWrapper()
   websearch = WebSearcher()
   rag = RAGLangchain()
   
   if TTS_CHOICE == "coqui":
     tts = TTSCoqui()
   elif TTS_CHOICE == "orpheus":
-    tts = TTSOrpheus(
-      api=os.getenv("OPENAI_API"),
-      api_key=os.getenv("OPENAI_API_KEY"),
-    )
+    tts = TTSOrpheus()
   elif TTS_CHOICE == "kokoro":
     tts = TTSKokoro()
     

@@ -4,18 +4,22 @@ import json
 import re
 import os
 from config import *
+from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
 
-logger = logging.getLogger("speech_to_speech.llm_wrapper")
 
 class LLMWrapper():
-  def __init__(self):
+  def __init__(self, interrupt_count:SynchronizedClass ):
+    self.logger = logging.getLogger("speech_to_speech.llm_wrapper")
+    self.interrupt_count = interrupt_count
+    self.interrupt_context = []
+
     self.api = os.getenv("OPENAI_API")
     self.api_key = os.getenv("OPENAI_API_KEY")
     self.model = LLM_MODEL
     self.global_chat_history = []
     self.current_chat_history = []
     self.current_chat_history_length = 0
-    project_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    project_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     self.chat_history_path = os.path.join(project_root_dir, "data", "chat_history.json")
     self.max_tokens = int(MAX_TOKENS * 0.75)
     
@@ -56,7 +60,7 @@ class LLMWrapper():
     
     
   def _load_convo_history(self):
-    logger.debug("Loading conversation history")
+    self.logger.debug("Loading conversation history")
 
     chat_history_file = open(self.chat_history_path, 'r', encoding="utf-8")
     self.global_chat_history = json.load(chat_history_file)["history"]
@@ -73,7 +77,7 @@ class LLMWrapper():
 
 
   def _write_chat_history(self):
-    logger.debug(f"Saving conversation history")
+    self.logger.debug(f"Saving conversation history")
 
     chat_history_file = open(self.chat_history_path, 'w', encoding="utf-8")
     json.dump({
@@ -129,15 +133,26 @@ class LLMWrapper():
       {"role": "user", "content": text + "/no_think"}
     ]
     
-    response = self.client.chat.completions.create(
+    response_text = ""
+    
+    stream = self.client.chat.completions.create(
       model=self.model,
       messages=prompt_messages,
       temperature=TEMPERATURE,
       top_p=TOP_P,
+      stream=True
       # max_tokens=150,
-    ).choices[0]
-    
-    response_text = response.message.content
+    )
+
+    for chunk in stream:
+      if self.interrupt_count.value > 0:
+        # On interrupt
+        return None, None
+      
+      data = chunk.choices[0].delta.content
+      if data is not None:
+        response_text += data
+
     response_text = self._filter_think(response_text)
     response_text = self._filter_emoji(response_text)
     response_text = self._filter_markdown(response_text)
@@ -153,11 +168,20 @@ class LLMWrapper():
 
     text_length = len(text.split(" "))
     
+    prompt_modification = ""
+    # if interrupted, let LLM know
+    if len(self.interrupt_context) > 0:
+      for entry in self.interrupt_context:
+        prompt_modification += "<interrupt>"+ entry + "</interrupt>\n"
+        
+    interrupt_text = prompt_modification + text
+    interrupt_text_length = len(interrupt_text.replace("\n", " ").split(" "))
+    
     self.current_chat_history.append(
-      {"role": "user", "content": text}
+      {"role": "user", "content": interrupt_text}
     )
     
-    self.current_chat_history_length += text_length
+    self.current_chat_history_length += interrupt_text_length
     
     while self.current_chat_history and ((self.current_chat_history_length + self.initial_prompt_length) >= self.max_tokens ):
       removed_chat_length = len(self.current_chat_history.pop(0).split(" "))
@@ -169,19 +193,30 @@ class LLMWrapper():
     
     # if context exists, add to user prompt
     if context != "":
-      prompt_messages[-1]["content"] =  "<context>"+ context.replace("\n", "") + "</context>\n\n" + prompt_messages[-1]["content"]
+      prompt_modification = "<context>"+ context.replace("\n", "") + "</context>\n\n"
+    
+    prompt_messages[-1]["content"] =  prompt_modification + prompt_messages[-1]["content"]
     
     # print(prompt_messages)
+    response_text = ""
     
-    response = self.client.chat.completions.create(
+    stream = self.client.chat.completions.create(
       model=self.model,
       messages=prompt_messages,
       temperature=TEMPERATURE,
       top_p=TOP_P,
+      stream=True
       # max_tokens=150,
-    ).choices[0]
+    )
+    for chunk in stream:
+      if self.interrupt_count.value > 0:
+        # On interrupt
+        return None
+
+      data = chunk.choices[0].delta.content
+      if data is not None:
+        response_text += data
     
-    response_text = response.message.content
     response_text = self._filter_think(response_text)
     response_text = self._filter_emoji(response_text)
     response_text = self._filter_markdown(response_text)
@@ -189,8 +224,8 @@ class LLMWrapper():
     response_length = len(response_text.split(" "))
     
     self.global_chat_history.append({
-      "message": {"role": "user", "content": text},
-      "length": text_length
+      "message": {"role": "user", "content": interrupt_text},
+      "length": interrupt_text_length
     })
     self.global_chat_history.append({
       "message": {"role": "assistant", "content": response_text},
@@ -202,7 +237,7 @@ class LLMWrapper():
     
     self._write_chat_history()
     
-    logger.debug("Response returned")
+    self.logger.debug("Response returned")
 
     return response_text
     

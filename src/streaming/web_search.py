@@ -10,36 +10,26 @@ from urllib.robotparser import RobotFileParser
 import urllib.request
 from playwright.sync_api import sync_playwright, TimeoutError
 from bs4 import BeautifulSoup
-
-
-logger = logging.getLogger("speech_to_speech.web_search")
-
+from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
 
 class WebSearcher:
-  def __init__(self):
+  def __init__(self, interrupt_count : SynchronizedClass):
+    self.logger = logging.getLogger("speech_to_speech.web_search")
+    self.interrupt_count = interrupt_count
+
     self.robot_parser = RobotFileParser()
     self.playwright = sync_playwright().start()
     self.browser = self.playwright.firefox.launch(headless=True)
     self.timeout = 5000 # milliseconds
     self.website_scrape_limit = 3
-    
-    project_root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+    project_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     user_agent_file_path = os.path.join(project_root_dir, "data", "user-agents.txt")
     user_agent_file = open(user_agent_file_path, 'r')
     self.user_agents = user_agent_file.read().split("\n")
 
 
   def _can_fetch(self, website):
-    # print("checkign scrapable")
-    # parsed_url = urlparse(website)
-    # robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
-    # print(robots_url)
-    # self.robot_parser.set_url(robots_url)
-    # try:
-    #     print("reading")
-    #     self.robot_parser.read()
-    #     print("read")
-    #     return self.robot_parser.can_fetch(self.user_agents[random.randint(0, len(self.user_agents) - 1)], website)
     try:
       parsed_url = urlparse(website)
       robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
@@ -58,7 +48,7 @@ class WebSearcher:
         return self.robot_parser.can_fetch(self.user_agents[random.randint(0, len(self.user_agents) - 1)], website)
 
     except Exception as e:
-        logger.error(f"Error reading robots.txt for {website}: {e}")
+        self.logger.error(f"Error reading robots.txt for {website}: {e}")
         return True  # Assume allowed if robots.txt can't be read
 
 
@@ -103,7 +93,7 @@ class WebSearcher:
       page.close()
 
     except Exception as e:
-      logger.error(e)
+      self.logger.error(e)
       return None
 
     soup = BeautifulSoup(html, "html.parser")
@@ -135,6 +125,9 @@ class WebSearcher:
     website_data = []
 
     for website in websites:
+      if self.interrupt_count.value > 0:
+        return None
+
       content = None
       if "wikipedia.org" in website:
         content = self._fetch_wiki_content(website)
@@ -164,17 +157,17 @@ class WebSearcher:
     results = None
 
     while retry_search:
-      logger.debug("Search started")
+      self.logger.debug("Search started")
       try: 
         ddgs_client = DDGS(timeout=2)
         results = ddgs_client.text(request, region="us-en", max_results=10, backend="chrome,duckduckgo,brave")
         retry_search = False  
         
       except DDGSException as e:
-        logger.error(e)
-        logger.debug("Retrying search")
+        self.logger.error(e)
+        self.logger.debug("Retrying search")
 
-    logger.info(results)
+    self.logger.info(results)
 
     results = [entry["href"] for entry in results]
     
