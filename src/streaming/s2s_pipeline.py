@@ -36,7 +36,9 @@ def wake_word_stt_worker(
   logger = get_logger("speech_to_speech.voice_worker")
   logger.debug("Setting up WakeWord and STT")
   
-  audio_recorder = Recorder()
+  audio_buffer_signal = Event()
+  audio_recorder = Recorder(audio_buffer_signal)
+  audio_buffer = audio_recorder.get_audio_buffer_instance()
   whisper = STTWhisper(vad_active=True, device=DEVICE)
   
   first_loop = True
@@ -56,27 +58,33 @@ def wake_word_stt_worker(
     if ask_wakeword:
       logger.debug("Listening for wake word...")
       audio_recorder.record_wake_word()
-      last_command_time = time.time()
       ask_wakeword = False
+      audio_buffer.clear_buffer()
 
-    if ask_wakeword and not command_queue.empty():
-      # If queue is not empty, it means that pipeline is still processing it
-      # increment interrupt count
-      logger.warning("interrupt fired")
-      interrupt_count.value += 1
+      if not command_queue.empty():
+        # If queue is not empty, it means that pipeline is still processing it
+        # increment interrupt count
+        logger.warning("interrupt fired")
+        interrupt_count.value += 1
 
     logger.debug("Listening for command...")
     command_buffer, command_duration = audio_recorder.record_command(ask_wakeword, command_queue, interrupt_count)
-    
+
     command_buffer.seek(0, io.SEEK_END)
     command_size = command_buffer.tell() # size of command buffer in bytes
     command_buffer.seek(0)
     
     num_samples = command_size // 2
     if num_samples < audio_recorder.porcupine.sample_rate * (VOICE_THRESHOLD + SILENCE_THRESHOLD):
-        logger.debug("No speech detected.")
-        continue
+      logger.debug("No speech detected.")
+      continue
     
+    extra_time_start = time.time()
+    audio_buffer.clear_buffer()
+    audio_buffer_thread  = threading.Thread(target=audio_buffer.fill_buffer, args=(), daemon=True)
+    audio_buffer_signal.set()
+    audio_buffer_thread.start()
+
     output_filename = "command.wav"
     logger.debug("Saving wav file.")
     save_wav_file(command_buffer, output_filename, logger)
@@ -89,16 +97,18 @@ def wake_word_stt_worker(
 
     if not text:
       logger.debug("No command detected")
+      audio_buffer_signal.clear()
+      audio_buffer_thread.join()
       continue
 
     continuation = False
+    extra_time_stop = time.time()
     # if time between this command and the previous one is < threashold, then we treet as continuation of previous prompt
-    if WAKEWORD_RESET_TIME > 0 and not first_loop and (time.time() - command_duration - last_command_time) < CONTINUATION_THRESHOLD:
+    if WAKEWORD_RESET_TIME > 0 and not first_loop and (time.time() - command_duration - (extra_time_stop - extra_time_start) - last_command_time) < (CONTINUATION_THRESHOLD):
       continuation = True
       text = prev_text + ", " + text
 
-    if not ask_wakeword:
-      last_command_time = time.time()
+    last_command_time = time.time()
 
     # command_buffer.seek(0)
     # play_wav_file(command_buffer, logger, interrupt_count)
@@ -109,7 +119,10 @@ def wake_word_stt_worker(
     command_queue.put({"text": text, "marker": "start", "continuation": continuation})
     command_queue.put({"text": text, "marker": "finish", "continuation": continuation})
     first_loop = False
-    
+
+    audio_buffer_signal.clear()
+    audio_buffer_thread.join()
+
 
 def websearch_llm_tts_worker(
   interrupt_count : SynchronizedClass,
@@ -188,11 +201,11 @@ def websearch_llm_tts_worker(
           # IF websearch needed, perform websearch
           if decision == "yes":           
             # PLay search speech while web search occurs
-            speech_thread = threading.Thread(target=searching_speech_worker, args=(tts, f"Searching the web for {topic}", interrupt_count))
+            speech_thread = threading.Thread(target=searching_speech_worker, args=(tts, f"Searching the web for {topic}", interrupt_count), daemon=True)
             speech_thread.start()
             
             # Get list of websites
-            websites = websearch.ddg_search(text)
+            websites = websearch.ddg_search(topic)
             if interrupt_count.value > 0:
               interrupt_actions(text, info="DDG Search")
               continue
@@ -208,6 +221,7 @@ def websearch_llm_tts_worker(
             logger.debug(f"Adding contents to RAG")
             interrupt_detected = False
             for document in web_contents:
+              logging.info(document)
               if interrupt_count.value > 0:
                 interrupt_actions(text, info="Adding document to RAG")
                 interrupt_detected = True
@@ -280,7 +294,6 @@ def main():
   log_queue = get_log_queue()
   
   command_queue = Queue()
-  interrupt_event = Event()
   interrupt_count = Value("i", 0)
   voice_setup_event = Event()
   pipeline_setup_event = Event()

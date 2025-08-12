@@ -15,7 +15,7 @@ class RAGLangchain:
       collection_name="RAG",
       embedding_function=self.embeddings
       )
-    self.splitter = RecursiveCharacterTextSplitter(chunk_size=750, chunk_overlap=100, length_function=len,  is_separator_regex=False)
+    self.splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=125, length_function=len,  is_separator_regex=False)
 
 
   def add_document(self, document):
@@ -24,6 +24,9 @@ class RAGLangchain:
     for chunk in self.splitter.split_text(document["content"]):
       documents.append(Document(chunk, metadata={"source": document["source"]}))
     
+    for table in document["tables"]:
+      documents.append(Document(table, metadata={"source": document["source"]}))
+
     self.db.add_documents(documents)
 
 
@@ -32,7 +35,7 @@ class RAGLangchain:
     
     search_results = self.db.similarity_search_with_relevance_scores(
       query=prompt,
-      k = 5
+      k = 7
     )
     
     # print(search_results)

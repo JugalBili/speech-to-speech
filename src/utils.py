@@ -100,7 +100,7 @@ def play_wav_file(wav_bytes):
   logger.debug("Waiting for audio to finish...")
 
   completion_event = threading.Event()
-  worker_thread = threading.Thread(target=worker_function, args=(speaker, completion_event))
+  worker_thread = threading.Thread(target=worker_function, args=(speaker, completion_event), daemon=True)
   worker_thread.start()
   completion_event.wait()
   worker_thread.join()

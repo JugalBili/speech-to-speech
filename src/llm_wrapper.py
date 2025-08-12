@@ -29,12 +29,13 @@ class LLMWrapper():
     self.initial_prompt_length = len(self.initial_prompt.split(" "))
     
     self.websearch_classifier_prompt = """
-    You are a classifier that determines whether a user’s request requires an external web search.
+    You are a classifier that determines whether a user’s request requires an external web search, and if so, what the concise web search query should be.
+
 
     Rules for deciding:
     - Answer "yes" if the prompt is about facts, knowledge, history, current events, or time-sensitive information
     - Answer "no" if the request can be answered without external knowledge (general conversation, opinions, jokes, instructions, etc.).
-    - If answering "yes", provide the topic to be searched for in no more than 5 words.  
+    - If answering "yes", provide a corrected, concise search query containing only the essential topic and keywords limited to no more than 10 words.
     - If answering "no", the main topic should be "None".
     - Correct the spelling of words in the main topic if necessary as the input prompt it the output of speech-to-text, and the text will be slightly off.
 
@@ -45,7 +46,7 @@ class LLMWrapper():
     - "How tall is the Empire state?" → `yes+-+Empire State Height`
     - "What is the price of Bitcoin currently?" → `yes+-+Bitcoin Price`
     - "How are you doing today?" → `no+-+None`
-    - "Explain what a black hole is." → `yes+-+What is Black Hole`
+    - "Explain what a black hole is." → `yes+-+What is Black Hole Explanation`
     - "Write me a poem about cats." → `no+-+None`
     - "Tell me the weather in Tokyo." → `yes+-+Tokyo Weather`
     """

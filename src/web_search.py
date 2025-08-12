@@ -10,6 +10,10 @@ from urllib.robotparser import RobotFileParser
 import urllib.request
 from playwright.sync_api import sync_playwright, TimeoutError
 from bs4 import BeautifulSoup
+import pandas as pd
+from io import StringIO
+import requests
+import re
 
 
 logger = logging.getLogger("speech_to_speech.web_search")
@@ -30,16 +34,6 @@ class WebSearcher:
 
 
   def _can_fetch(self, website):
-    # print("checkign scrapable")
-    # parsed_url = urlparse(website)
-    # robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
-    # print(robots_url)
-    # self.robot_parser.set_url(robots_url)
-    # try:
-    #     print("reading")
-    #     self.robot_parser.read()
-    #     print("read")
-    #     return self.robot_parser.can_fetch(self.user_agents[random.randint(0, len(self.user_agents) - 1)], website)
     try:
       parsed_url = urlparse(website)
       robots_url = f"{parsed_url.scheme}://{parsed_url.netloc}/robots.txt"
@@ -62,6 +56,48 @@ class WebSearcher:
         return True  # Assume allowed if robots.txt can't be read
 
 
+  def parse_tables(self, html, class_filter):
+    soup = BeautifulSoup(html, "html.parser")
+    tables_html = soup.find_all("table", class_=class_filter)
+
+    table_texts = []
+    for idx, table in enumerate(tables_html, start=1):
+      caption = ""
+      try:
+        caption_tag = table.find("caption")
+        caption = caption_tag.get_text(strip=True) if caption_tag else ""
+        caption = re.sub(r"\[\d+\]", "", caption).strip()
+
+        df_list = pd.read_html(StringIO(str(table)))
+        if df_list:
+          df = df_list[0]
+
+          # Ensure column headers are strings
+          headers = [str(h) for h in df.columns]
+          
+          if headers and headers[0].lower().startswith("vte"):
+            continue
+
+          # Build markdown header row
+          header_row = "| " + " | ".join(headers) + " |"
+          separator_row = "| " + " | ".join(["---"] * len(headers)) + " |"
+
+          # Build data rows
+          data_rows = [
+            "| " + " | ".join(str(cell) for cell in row) + " |"
+            for row in df.to_numpy()
+          ]
+
+          # Combine all into one table string
+          markdown_table = "\n".join([header_row, separator_row] + data_rows)
+          table_texts.append(f"[Table] {caption}\n{markdown_table}")
+
+      except Exception as e:
+        self.logger.error(f"Error parsing table {caption}: {e}")
+
+    return table_texts
+
+
   def _fetch_wiki_content(self, website):
     parsed_url = urlparse(website)
     path_components = parsed_url.path[1:].split("/")
@@ -70,7 +106,13 @@ class WebSearcher:
     
     page = wikipedia.page(title, auto_suggest=False)
     
-    return page.content.replace("\n", "")
+    response = requests.get(website)
+    response.raise_for_status()
+    html = response.text
+
+    tables = self.parse_tables(html, "wikitable")
+    
+    return page.content.replace("\n", ""), tables
 
 
   def _fetch_fandom_content(self, website):
@@ -86,7 +128,13 @@ class WebSearcher:
     fandom.set_wiki(fandom_page)
     page = fandom.page(title)
     
-    return page.plain_text.replace("\n", "")
+    response = requests.get(website)
+    response.raise_for_status()
+    html = response.text
+
+    tables = self.parse_tables(html, "wikitable")
+    
+    return page.plain_text.replace("\n", ""), tables
 
 
   def _fetch_other_content(self, website):
@@ -104,7 +152,7 @@ class WebSearcher:
 
     except Exception as e:
       logger.error(e)
-      return None
+      return None, None
 
     soup = BeautifulSoup(html, "html.parser")
     
@@ -127,29 +175,33 @@ class WebSearcher:
     # Extract and clean text
     text = soup.get_text(separator=" ")
     text = " ".join(text.split())  # Collapse multiple spaces
-    return text.replace("\n", "")
+
+    return text.replace("\n", ""), []
 
 
   def fetch_content(self, websites):
     websites_read = 0
     website_data = []
 
+    content = None
+    tables = []
     for website in websites:
       content = None
       if "wikipedia.org" in website:
-        content = self._fetch_wiki_content(website)
+        content, tables = self._fetch_wiki_content(website)
       elif "fandom.com" in website:
-        content = self._fetch_fandom_content(website)
+        content, tables = self._fetch_fandom_content(website)
       else:
         scrapable = self._can_fetch(website)
         if scrapable:
-          content = self._fetch_other_content(website)
+          content, tables = self._fetch_other_content(website)
 
       if content != None:
         websites_read += 1
 
         website_data.append({
           "content": content,
+          "tables": tables,
           "source": website
         })
 

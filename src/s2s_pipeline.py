@@ -54,7 +54,6 @@ def main():
     if ask_wakeword:  
       logger.debug("Listening for wake word...")
       audio_recorder.record_wake_word()
-      last_command_time = time.time()
       ask_wakeword = False
     
     
@@ -84,9 +83,8 @@ def main():
     if not text:
       logger.debug("No command detected")
       continue
-   
-    if not ask_wakeword:
-      last_command_time = time.time()
+
+    last_command_time = time.time()
     
     # text = "test"  
 
@@ -105,10 +103,10 @@ def main():
         logger.debug(f"Not enough confident info in RAG, requires search")
         
         # PLay search speech while web search occurs
-        speech_thread = threading.Thread(target=searching_speech_worker, args=(tts, f"Searching the web for {topic}"))
+        speech_thread = threading.Thread(target=searching_speech_worker, args=(tts, f"Searching the web for {topic}"), daemon=True)
         speech_thread.start()
         
-        websites = websearch.ddg_search(text)
+        websites = websearch.ddg_search(topic)
         # print(websites)
         logger.debug(f"Fetching website contents")
         web_contents = websearch.fetch_content(websites)
