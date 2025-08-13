@@ -7,7 +7,7 @@ from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
 from typing import Union
 from config import *
 
-def save_wav_file(wav_bytes, wav_filename, logger):
+def save_wav_file(wav_bytes, text, wav_filename, logger):
   with wave.open(wav_bytes, 'rb') as in_wav:
     # Get parameters from the input wave file
     nchannels = in_wav.getnchannels()
@@ -30,6 +30,9 @@ def save_wav_file(wav_bytes, wav_filename, logger):
 
     # Write the frames to the output file
     out_wav.writeframes(frames)
+
+  with open(wav_filename.replace(".wav", ".txt"), "w") as txt_file:
+    txt_file.write(text.replace("\n", " "))
 
   logger.debug(f"Audio successfully saved to {wav_filename}")
   

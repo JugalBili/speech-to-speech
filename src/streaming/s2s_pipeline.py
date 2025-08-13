@@ -40,6 +40,8 @@ def wake_word_stt_worker(
   audio_recorder = Recorder(audio_buffer_signal)
   audio_buffer = audio_recorder.get_audio_buffer_instance()
   whisper = STTWhisper(vad_active=True, device=DEVICE)
+  project_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+  output_dir = os.path.join(project_root_dir, "conversation")
   
   first_loop = True
   ask_wakeword = True
@@ -69,6 +71,7 @@ def wake_word_stt_worker(
 
     logger.debug("Listening for command...")
     command_buffer, command_duration = audio_recorder.record_command(ask_wakeword, command_queue, interrupt_count)
+    # logger.error(f"Start - {time.time()}")
 
     command_buffer.seek(0, io.SEEK_END)
     command_size = command_buffer.tell() # size of command buffer in bytes
@@ -85,10 +88,6 @@ def wake_word_stt_worker(
     audio_buffer_signal.set()
     audio_buffer_thread.start()
 
-    output_filename = "command.wav"
-    logger.debug("Saving wav file.")
-    save_wav_file(command_buffer, output_filename, logger)
-
     logger.debug("Running Speech-To-Text")
     command_buffer.seek(0)
     text_segments = whisper.transcribe(command_buffer)
@@ -100,6 +99,11 @@ def wake_word_stt_worker(
       audio_buffer_signal.clear()
       audio_buffer_thread.join()
       continue
+    
+    output_filename = os.path.join(output_dir, "command.wav")
+    logger.debug("Saving wav file.")
+    command_buffer.seek(0)
+    save_wav_file(command_buffer, text, output_filename, logger)
 
     continuation = False
     extra_time_stop = time.time()
@@ -147,6 +151,9 @@ def websearch_llm_tts_worker(
     tts = TTSOrpheus(interrupt_count=interrupt_count)
   elif TTS_CHOICE == "kokoro":
     tts = TTSKokoro(interrupt_count=interrupt_count)
+    
+  project_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+  output_dir = os.path.join(project_root_dir, "conversation")
         
   def interrupt_actions(text, info):
     logger.warning(f"Pipeline Interrupted: {info}")
@@ -263,11 +270,11 @@ def websearch_llm_tts_worker(
           continue
 
         output_buffer.seek(0)
-        output_filename = "output.wav"
+        output_filename = os.path.join(output_dir, "output.wav")
         logger.debug("Saving wav file.")
-        save_wav_file(output_buffer, output_filename, logger)
+        save_wav_file(output_buffer, response, output_filename, logger)
         output_buffer.seek(0)
-        
+        logger.error(f"End - {time.time()}")
         logger.debug("Playing response")
         play_wav_file(output_buffer, logger, interrupt_count=interrupt_count)
         if interrupt_count.value > 0:
