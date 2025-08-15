@@ -10,6 +10,7 @@ from openai import OpenAI
 from config import *
 import os
 from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
+from src.streaming.audio_output import AudioOutputter
 
 class TTSOrpheus:
   def __init__(self, interrupt_count: SynchronizedClass):
@@ -182,6 +183,33 @@ class TTSOrpheus:
         return None, None
       audio_segments, audio_duration = self._tokens_decoder_sync(speech_token_generator, wav_file)
 
+    finally:
+      wav_file.close()
+      
+    return wav_buffer, audio_duration
+
+  def synthesize_and_stream(self, text): 
+    wav_buffer = io.BytesIO()
+    wav_file = wave.open(wav_buffer, 'wb')
+    wav_file.setnchannels(1)
+    wav_file.setsampwidth(2)
+    wav_file.setframerate(24000)
+    
+    audio_duration = 0
+    audio_segments = None
+    
+    try:
+      speech_token_generator = self._generate_tokens_from_api(text)
+      if self.interrupt_count.value > 0:
+        return None, None
+      audio_segments, audio_duration = self._tokens_decoder_sync(speech_token_generator, wav_file)
+
+      self.logger.debug("Playing response")
+      wav_buffer.seek(0)
+      audio_speaker = AudioOutputter(self.interrupt_count, self.logger)
+      audio_speaker.play_wav_file(wav_buffer)
+      wav_buffer.seek(0)
+  
     finally:
       wav_file.close()
       

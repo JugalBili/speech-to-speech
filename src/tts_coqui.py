@@ -15,7 +15,6 @@ class TTSCoqui:
 
     self.model = COQUI_TTS_MODEL
     self.client = TTS(self.model).to(DEVICE)
-    self.reference_audio = COQUI_TTS_REFERENCE_WAV
   
   def synthesize(self, text):
     wav_buffer = io.BytesIO()
@@ -29,9 +28,7 @@ class TTSCoqui:
     try:
       wav_values = self.client.tts(
         text=text,
-        language="en" if "xtts" in self.model else None,
-        speaker_wav=self.reference_audio if "xtts" in self.model else None, 
-        speaker=COQUI_TTS_SPEAKER if "xtts" not in self.model else None
+        speaker=COQUI_TTS_SPEAKER
       )
   
       audio_duration = len(wav_values) / 24000 

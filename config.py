@@ -50,7 +50,8 @@ Maintain your professional, composed, and articulate J.A.R.V.I.S. persona throug
 """
 
 ## TTS Parameters
-TTS_CHOICE = 'kokoro' # ["coqui", "orpheus", "kokoro"]
+TTS_CHOICE = 'xtts' # ["coqui", "orpheus", "kokoro", "xtts"]
+TTS_AUDIO_STREAMING = True # Plays audio as the TTS generates speech
 ORPHEUS_TTS_MODEL = "orpheus-3b-0.1-ft"
 ORPHEUS_TTS_VOICE = "leo" # ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"]
 ORPHEUS_TTS_TEMPERATURE = 0.5
@@ -58,8 +59,9 @@ ORPHEUS_TTS_TOP_P = 0.9
 ORPHEUS_TTS_MAX_TOKENS = 2048
 ORPHEUS_TTS_REPEAT_PENALTY = 1.1
 COQUI_TTS_MODEL = "tts_models/en/vctk/vits" # "tts_models/multilingual/multi-dataset/xtts_v2" 
-COQUI_TTS_REFERENCE_WAV = "xtts_reference.wav" # must be wav file
 COQUI_TTS_SPEAKER = "p234"
+XTTS_HUGGINGFACE_MODEL = "coqui/XTTS-v2"
+XTTS_REFERENCE_WAV = "xtts_reference.wav" # must be wav file
 KOKORO_TTS_VOICE = "bm_daniel" # ["af_heart", "af_bella", "af_nicole", "am_fenrir", "am_michael", "am_puck", "bf_emma", "bf_isabella", "bm_george", "bm_fable", "bm_daniel"]
 KOKORO_TTS_LANG = "b" # "a" for american, "b" for british (must match voice)
 

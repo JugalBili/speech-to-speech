@@ -6,6 +6,7 @@ import torch
 from config import *
 from kokoro import KPipeline
 from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
+from src.streaming.audio_output import AudioOutputter
 
 class TTSKokoro:
   def __init__(self, interrupt_count: SynchronizedClass):
@@ -42,6 +43,41 @@ class TTSKokoro:
         audio_duration = len(audio) / self.samplerate
         wav_Data = audio.astype(np.int16, copy=False)
         wav_file.writeframes(wav_Data.tobytes())
+
+    finally:
+      wav_file.close()
+    
+    return wav_buffer, audio_duration
+
+  def synthesize_and_stream(self, text):
+    wav_buffer = io.BytesIO()
+    wav_file = wave.open(wav_buffer, 'wb')
+    wav_file.setnchannels(1)
+    wav_file.setsampwidth(2)
+    wav_file.setframerate(self.samplerate)
+    
+    audio_duration = 0
+    
+    try:
+      generator = self.client(text, voice=self.voice, speed=1.3 if self.voice == "af_nicole" else 1.0)
+      
+      for _, _,audio in generator:
+        if self.interrupt_count.value > 0:
+          break
+
+        audio = audio if isinstance(audio, torch.Tensor) else torch.from_numpy(audio).float()
+        audio = audio.numpy()
+        audio *= 32767
+        
+        audio_duration = len(audio) / self.samplerate
+        wav_Data = audio.astype(np.int16, copy=False)
+        wav_file.writeframes(wav_Data.tobytes())
+        
+        self.logger.debug("Playing response")
+        wav_buffer.seek(0)
+        audio_speaker = AudioOutputter(self.interrupt_count, self.logger)
+        audio_speaker.play_wav_file(wav_buffer)
+        wav_buffer.seek(0)
 
     finally:
       wav_file.close()

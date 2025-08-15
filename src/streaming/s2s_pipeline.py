@@ -13,13 +13,15 @@ import time
 from src.streaming.logging_config import setup_logging, start_listener, stop_listener, setup_worker_logging, get_logger, get_log_queue
 from src.streaming.voice_recorder import Recorder
 from src.streaming.stt_whisper import STTWhisper
-from src.streaming.utils import save_wav_file, play_wav_file
+from src.streaming.utils import save_wav_file
 from src.streaming.llm_wrapper import LLMWrapper
 from src.streaming.rag_langchain import RAGLangchain
 from src.streaming.web_search import WebSearcher
 from src.streaming.tts_orpheus import TTSOrpheus
 from src.streaming.tts_coqui import TTSCoqui
 from src.streaming.tts_kokoro import TTSKokoro
+from src.streaming.tts_xtts import TTSXtts
+from src.streaming.audio_output import AudioOutputter
 
 
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
@@ -36,6 +38,7 @@ def wake_word_stt_worker(
   logger = get_logger("speech_to_speech.voice_worker")
   logger.debug("Setting up WakeWord and STT")
   
+  audio_speaker = AudioOutputter(interrupt_count, logger)
   audio_buffer_signal = Event()
   audio_recorder = Recorder(audio_buffer_signal)
   audio_buffer = audio_recorder.get_audio_buffer_instance()
@@ -115,7 +118,7 @@ def wake_word_stt_worker(
     last_command_time = time.time()
 
     # command_buffer.seek(0)
-    # play_wav_file(command_buffer, logger, interrupt_count)
+    # audio_speaker.play_wav_file(command_buffer)
 
     prev_text = text
 
@@ -139,6 +142,7 @@ def websearch_llm_tts_worker(
   logger = get_logger("speech_to_speech.pipeline_worker")
   logger.debug("Setting up Websearch, LLM and TTS")
   
+  audio_speaker = AudioOutputter(interrupt_count, logger)
   llm = LLMWrapper(
     interrupt_count=interrupt_count
   )
@@ -151,6 +155,8 @@ def websearch_llm_tts_worker(
     tts = TTSOrpheus(interrupt_count=interrupt_count)
   elif TTS_CHOICE == "kokoro":
     tts = TTSKokoro(interrupt_count=interrupt_count)
+  elif TTS_CHOICE == "xtts":
+    tts = TTSXtts(interrupt_count=interrupt_count)
     
   project_root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
   output_dir = os.path.join(project_root_dir, "conversation")
@@ -159,10 +165,11 @@ def websearch_llm_tts_worker(
     logger.warning(f"Pipeline Interrupted: {info}")
     llm.interrupt_context.append(text)
     
-  def searching_speech_worker(tts, text, interrupt_count):
+  def searching_speech_worker(tts, text, interrupt_count, logger):
+    audio_speaker = AudioOutputter(interrupt_count, logger)
     output_buffer, output_duration = tts.synthesize(text)
     output_buffer.seek(0)
-    play_wav_file(output_buffer, logger, interrupt_count)
+    audio_speaker.play_wav_file(output_buffer)
 
   pipeline_setup_event.set()
   logger.debug("Waiting for voice recording to setup")
@@ -179,7 +186,8 @@ def websearch_llm_tts_worker(
       if marker == "start":
         
         if continuation:
-          llm.interrupt_context.pop()
+          if len(llm.interrupt_context) > 0:
+            llm.interrupt_context.pop()
 
         # run core pipeline
         if interrupt_count.value > 0:
@@ -208,7 +216,7 @@ def websearch_llm_tts_worker(
           # IF websearch needed, perform websearch
           if decision == "yes":           
             # PLay search speech while web search occurs
-            speech_thread = threading.Thread(target=searching_speech_worker, args=(tts, f"Searching the web for {topic}", interrupt_count), daemon=True)
+            speech_thread = threading.Thread(target=searching_speech_worker, args=(tts, f"Searching the web for {topic}", interrupt_count, logger), daemon=True)
             speech_thread.start()
             
             # Get list of websites
@@ -264,7 +272,12 @@ def websearch_llm_tts_worker(
         
         # Create speach from response
         logger.debug("Synthesizing speech")
-        output_buffer, output_duration = tts.synthesize(response)
+        output_buffer = None
+        output_duration = 0
+        if TTS_AUDIO_STREAMING:
+          output_buffer, output_duration = tts.synthesize_and_stream(response)
+        else:
+          output_buffer, output_duration = tts.synthesize(response)
         if interrupt_count.value > 0:
           interrupt_actions(text, info="Synthesizing speach for LLM response")
           continue
@@ -274,13 +287,17 @@ def websearch_llm_tts_worker(
         logger.debug("Saving wav file.")
         save_wav_file(output_buffer, response, output_filename, logger)
         output_buffer.seek(0)
-        logger.error(f"End - {time.time()}")
-        logger.debug("Playing response")
-        play_wav_file(output_buffer, logger, interrupt_count=interrupt_count)
-        if interrupt_count.value > 0:
-          interrupt_actions(text, info="Playing Speech")
-          continue
-        output_buffer.seek(0)
+        # logger.error(f"End - {time.time()}")
+        
+        logger.warning(output_duration)
+        
+        if not TTS_AUDIO_STREAMING:
+          logger.debug("Playing response")
+          audio_speaker.play_wav_file(output_buffer)
+          if interrupt_count.value > 0:
+            interrupt_actions(text, info="Playing Speech")
+            continue
+          output_buffer.seek(0)
 
         # Finished without being interrupted, clear llm interrupt_context
         llm.interrupt_context.clear()
@@ -304,6 +321,8 @@ def main():
   interrupt_count = Value("i", 0)
   voice_setup_event = Event()
   pipeline_setup_event = Event()
+  # initialize first here to prevent race condition to initialize later
+  audio_speaker = AudioOutputter(interrupt_count, logger)
   
   voice_worker = Process(target=wake_word_stt_worker, args=(interrupt_count, voice_setup_event, pipeline_setup_event, command_queue, log_queue))
   pipeline_worker = Process(target=websearch_llm_tts_worker, args=(interrupt_count, voice_setup_event, pipeline_setup_event, command_queue, log_queue))
