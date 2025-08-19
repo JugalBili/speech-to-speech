@@ -33,10 +33,10 @@ class LLMWrapper():
     self.initial_prompt_length = len(self.initial_prompt.split(" "))
     
     self.websearch_classifier_prompt = """
-    You are a classifier that determines whether a user’s request requires an external web search, and if so, what the concise web search query should be.
+    You are a classifier that determines whether a user’s request requires an external web search, and if so, what the concise web search query should be. Ensure that you use conversation history when performing the tasks. Note that some past conversations may or may not be relevant to the current prompt, so perform the task with this in mind.
 
     Rules for deciding:
-    - Answer "yes" if the prompt is about facts, knowledge, history, current events, or time-sensitive information
+    - Answer "yes" ONLY if the prompt does not contain general knowledge comments or questions and only if the prompt is about non-general knowledge facts, history, current events, or time-sensitive information
     - Answer "no" if the request can be answered without external knowledge (general conversation, opinions, jokes, instructions, etc.).
     - If answering "yes", provide a corrected, concise search query containing only the essential topic and keywords limited to no more than 10 words.
     - If answering "no", the main topic should be "None".
@@ -136,8 +136,19 @@ class LLMWrapper():
   def decide_websearch(self, text):
     prompt_messages = [
       {"role": "system", "content": self.websearch_classifier_prompt},
-      {"role": "user", "content": text + "/no_think"}
     ]
+    
+    user_prompt_history = []
+    for entry in self.current_chat_history[::-1]:
+      if entry["role"] == "user":
+        user_prompt_history.insert(0, entry)
+        if len(user_prompt_history) == 5:
+          break
+      else:
+        pass
+    
+    prompt_messages.extend(user_prompt_history)
+    prompt_messages.extend([{"role": "user", "content": text + "/no_think"}])
     
     response_text = ""
     

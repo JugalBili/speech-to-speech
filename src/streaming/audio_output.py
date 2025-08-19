@@ -6,6 +6,7 @@ from pvspeaker import PvSpeaker
 from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
 from config import *
 import queue
+import time
 
 
 class AudioOutputter():
@@ -74,7 +75,8 @@ class AudioOutputter():
             if self.interrupt_count.value > 0:
               self.speaker.stop()
               break
-
+            
+            # self.logger.error(f"Chunk written - {time.time()}")
             written = self.speaker.write(pcm_chunk[total_written:])
             total_written += written
         except queue.Empty:

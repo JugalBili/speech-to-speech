@@ -16,7 +16,7 @@ class RAGLangchain:
       collection_name="RAG",
       embedding_function=self.embeddings
       )
-    self.splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=125, length_function=len,  is_separator_regex=False)
+    self.splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=125, is_separator_regex=False)
 
 
   def add_document(self, document):
