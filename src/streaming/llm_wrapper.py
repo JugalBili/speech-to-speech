@@ -209,7 +209,7 @@ class LLMWrapper():
 
 
   def send_to_llm(self, text, timestamp, memory = "None", context = ""):
-    if not ENABLE_THINK:
+    if not ENABLE_THINK and "instruct" not in LLM_MODEL:
       text = text + " /no_think" # disable reasoning
 
     text_length = len(text.split(" "))
