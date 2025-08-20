@@ -12,8 +12,6 @@
 
 ![Pipeline Diagram](./images/pipeline.png)
 
-> TODO:
->  - Polish websearch and RAG
 
 ## Table of Contents
 - [Speech to Speech Pipeline](#speech-to-speech-pipeline)
@@ -136,7 +134,7 @@ LM Studio is a inferencing client that helps us downloads and run LLM models wit
 
 5. On the left navigation pane, select the 4th icon (Magnifying glass) to search and download the following models:
 
-    - mradermacher/Josiefied-Qwen3-8B-abliterated-v1-GGUF
+    - mradermacher/Huihui-Qwen3-4B-Instruct-2507-abliterated-GGUF
     - isaiahbjork/orpheus-3b-0.1-ft-Q4_K_M-GGUF
 
     > **Note:** Ensure that the `Q4_K_M` version is selected in the dropdown on the right pane above the model readme

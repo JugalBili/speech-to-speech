@@ -74,7 +74,7 @@ class TTSOrpheus:
   def _convert_to_audio(self, multiframe, count):
     """Convert token frames to audio."""
     # Import here to avoid circular imports
-    from tts_orpheus_decoder import convert_to_audio as orpheus_convert_to_audio
+    from src.streaming.tts_orpheus_decoder import convert_to_audio as orpheus_convert_to_audio
 
     return orpheus_convert_to_audio(self.snac_model, self.snac_device, multiframe, count)
 
@@ -115,7 +115,7 @@ class TTSOrpheus:
         asyncio.run(async_producer())
 
     # Start the async producer in a separate thread
-    thread = threading.Thread(target=run_async)
+    thread = threading.Thread(target=run_async, daemon=True)
     thread.start()
 
     # Process audio as it becomes available
@@ -152,7 +152,7 @@ class TTSOrpheus:
       temperature=ORPHEUS_TTS_TEMPERATURE,
       top_p=ORPHEUS_TTS_TOP_P,
       stream=True,
-      max_tokens=ORPHEUS_TTS_MAX_TOKENS,
+      # max_tokens=ORPHEUS_TTS_MAX_TOKENS,
       extra_body={ "repeat_penalty": ORPHEUS_TTS_REPEAT_PENALTY }
     )
 

@@ -3,12 +3,14 @@ import logging
 import json
 import re
 import os
+import time
+from datetime import datetime
 from config import *
 from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
 
 
 class LLMWrapper():
-  def __init__(self, interrupt_count:SynchronizedClass ):
+  def __init__(self, interrupt_count:SynchronizedClass, memories = []):
     self.logger = logging.getLogger("speech_to_speech.llm_wrapper")
     self.interrupt_count = interrupt_count
     self.interrupt_context = []
@@ -23,8 +25,9 @@ class LLMWrapper():
     self.chat_history_path = os.path.join(project_root_dir, "data", "chat_history.json")
     self.max_tokens = int(MAX_TOKENS * 0.75)
     
+    self.memories = memories
     self.initial_prompt = INITIAL_PROMPT
-    self.initial_prompt += "Do not style your response using markdown formatting. Note that you responses must be in a conversation format, thus not text fomatting is allowed to make the output look nice after it has been rendered."
+    self.initial_prompt += "Do not style your response using markdown formatting. Note that you responses must be in a conversation format. Thus no text fomatting is allowed to make the output look nice after it has been rendered."
     if TTS_CHOICE == "orpheus":
       self.initial_prompt += " Also, add paralinguistic elements like <laugh>, <chuckle>, <sigh>, <cough>, <sniffle>, <groan>, <yawn>, <gasp> or uhm for more human-like speech whenever it fits, but do not overdo it, please only add it when necessary and not often."
     if TTS_CHOICE == "kokoro":
@@ -32,26 +35,55 @@ class LLMWrapper():
     self.initial_prompt = self.initial_prompt.replace("\n", "")
     self.initial_prompt_length = len(self.initial_prompt.split(" "))
     
-    self.websearch_classifier_prompt = """
-    You are a classifier that determines whether a user’s request requires an external web search, and if so, what the concise web search query should be. Ensure that you use conversation history when performing the tasks. Note that some past conversations may or may not be relevant to the current prompt, so perform the task with this in mind.
+    self.websearch_memory_classifier_prompt = """
+    You are a classifier that performs TWO tasks for each user prompt.    
 
-    Rules for deciding:
-    - Answer "yes" ONLY if the prompt does not contain general knowledge comments or questions and only if the prompt is about non-general knowledge facts, history, current events, or time-sensitive information
+    1. Web Search Classification: determine whether a user’s request requires an external web search, and if so, what the concise web search query should be.
+
+    Web Search Classification Rules:
+    - Answer "yes" if the prompt explicitly asks about or references uncommon facts, knowledge, history, current events, or time-sensitive information
     - Answer "no" if the request can be answered without external knowledge (general conversation, opinions, jokes, instructions, etc.).
     - If answering "yes", provide a corrected, concise search query containing only the essential topic and keywords limited to no more than 10 words.
     - If answering "no", the main topic should be "None".
     - Correct the spelling of words in the main topic if necessary as the input prompt it the output of speech-to-text, and the text will be slightly off.
 
-    Output format (no extra words, no punctuation except as shown):  
+    Web Search Classification Output format (no extra words, no punctuation except as shown):  
     `<yes/no>+-+<main topic>`
 
-    Examples:
+    Web Search Classification Examples:
     - "How tall is the Empire state?" → `yes+-+Empire State Height`
     - "What is the price of Bitcoin currently?" → `yes+-+Bitcoin Price`
     - "How are you doing today?" → `no+-+None`
     - "Explain what a black hole is." → `yes+-+What is Black Hole Explanation`
     - "Write me a poem about cats." → `no+-+None`
     - "Tell me the weather in Tokyo." → `yes+-+Tokyo Weather`
+
+    2. Deep Memory Extraction: determines whether a user’s prompt is contains information worth remembering in deep memory.
+
+    Deep Memory Extraction Rules:
+    - Extract directly, or indirectly information about the user or what the user explicitly asks the system to remember.
+    - This includes Names, relationships, preferences, goals, identity info.
+    - Ignore casual conversation, temporary context, or general questions.
+    - If nothing important should be remembered, return "None".
+
+    Deep Memory Extraction Output format (no extra words, no punctuation except as shown):
+    - <deep_memory:...> where "..." is replaced by the information about the user to remember or "None"
+
+    Deep Memory Extraction Examples:
+    - "How tall is the Empire state?" → <deep_memory:None>
+    - "My investments are not doing well right now" → <deep_memory:None>
+    - "What is the price of Bitcoin currently?" → <deep_memory:None>
+    - "My friend Bob sold me that I am short, is he right?" → <deep_memory:Users best friend is Bob>
+    - "Bob is wearing a red jacket and has black hair" → <deep_memory:Bob wears a red jacket and has black hair>
+    - "Call me Jeff" → <deep_memory:User wants to be called Jeff>
+    - "Tell me the weather in Tokyo." → <deep_memory:None>
+    - "I like cheese" → <deep_memory:User likes cheese>
+    - "I am currently streaming on twitch right now" - <deep_memory:User streams on twitch>
+
+
+    Overall output structure: Should only consists of 2 lines
+    - First line = websearch classifier result
+    - Second line = memory extraction result
     """
     
     self.client = OpenAI(base_url=self.api, api_key=self.api_key)
@@ -133,23 +165,12 @@ class LLMWrapper():
     
     return filtered_text
 
-  def decide_websearch(self, text):
+  def decide_websearch_memory(self, text):
     prompt_messages = [
-      {"role": "system", "content": self.websearch_classifier_prompt},
+      {"role": "system", "content": self.websearch_memory_classifier_prompt},
+      {"role": "user", "content": text + "" if "instruct" in LLM_MODEL else "/no_think"}
     ]
-    
-    user_prompt_history = []
-    for entry in self.current_chat_history[::-1]:
-      if entry["role"] == "user":
-        user_prompt_history.insert(0, entry)
-        if len(user_prompt_history) == 5:
-          break
-      else:
-        pass
-    
-    prompt_messages.extend(user_prompt_history)
-    prompt_messages.extend([{"role": "user", "content": text + "/no_think"}])
-    
+
     response_text = ""
     
     stream = self.client.chat.completions.create(
@@ -174,17 +195,36 @@ class LLMWrapper():
     response_text = self._filter_emoji(response_text)
     response_text = self._filter_markdown(response_text)
     
-    require_search, topic = response_text.split("+-+")
+    websearch_line = response_text.split("\n")[0]
+    memory_line = response_text.split("\n")[-1]
+    
+    require_search, topic = websearch_line.split("+-+")
+    memory = None
+    
+    memory_match = re.search(r"<deep_memory:(.*?)>", memory_line)
+    if memory_match:
+      memory = memory_match.group(1)
 
-    return require_search.lower(), topic.lower()
+    return (require_search.lower(), topic.lower()), memory
 
 
-  def send_to_llm(self, text, context = ""):
+  def send_to_llm(self, text, timestamp, memory = "None", context = ""):
     if not ENABLE_THINK:
       text = text + " /no_think" # disable reasoning
 
     text_length = len(text.split(" "))
     
+    if memory != "None":
+      self.memories.append(f"{datetime.fromtimestamp(timestamp).strftime("%m-%d-%y %H:%M:%S")} - {memory}")
+    
+    memories_text = ""
+    for memory in self.memories:
+      memories_text += f"<memory>{memory}</memory>\n"
+
+    init_prompt_mem = self.initial_prompt + "\n\n" + memories_text
+    init_prompt_mem_length = len(init_prompt_mem.split(" "))
+
+
     prompt_modification = ""
     # if interrupted, let LLM know
     if len(self.interrupt_context) > 0:
@@ -200,12 +240,12 @@ class LLMWrapper():
     
     self.current_chat_history_length += interrupt_text_length
     
-    while self.current_chat_history and ((self.current_chat_history_length + self.initial_prompt_length) >= self.max_tokens ):
+    while self.current_chat_history and ((self.current_chat_history_length + init_prompt_mem_length) >= self.max_tokens ):
       removed_chat_length = len(self.current_chat_history.pop(0).split(" "))
       self.current_chat_history_length -= removed_chat_length
     
     # print(json.dumps(self.current_chat_history, indent=2))
-    prompt_messages = [{"role": "system", "content": self.initial_prompt}]
+    prompt_messages = [{"role": "system", "content": init_prompt_mem}]
     prompt_messages.extend(self.current_chat_history)
     
     # if context exists, add to user prompt
@@ -233,7 +273,7 @@ class LLMWrapper():
       data = chunk.choices[0].delta.content
       if data is not None:
         response_text += data
-    
+    response_timestamp = time.time()
     response_text = self._filter_think(response_text)
     response_text = self._filter_emoji(response_text)
     response_text = self._filter_markdown(response_text)
@@ -242,15 +282,17 @@ class LLMWrapper():
     
     self.global_chat_history.append({
       "message": {"role": "user", "content": interrupt_text},
-      "length": interrupt_text_length
+      "length": interrupt_text_length,
+      "timestamp": timestamp
     })
     self.global_chat_history.append({
       "message": {"role": "assistant", "content": response_text},
-      "length": response_length
+      "length": response_length,
+      "timestamp": response_timestamp
     })
     self.current_chat_history.append(
       {"role": "assistant", "content": response_text}
-      )
+    )
     
     self._write_chat_history()
     

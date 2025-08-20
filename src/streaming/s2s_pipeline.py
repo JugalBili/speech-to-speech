@@ -123,8 +123,8 @@ def wake_word_stt_worker(
     prev_text = text
 
     # Add 2 events, 1 to determine when pipeline starts working, and 1 to determine when pipeline stops working on  queue
-    command_queue.put({"text": text, "marker": "start", "continuation": continuation})
-    command_queue.put({"text": text, "marker": "finish", "continuation": continuation})
+    command_queue.put({"text": text, "marker": "start", "continuation": continuation, "timestamp": last_command_time})
+    command_queue.put({"text": text, "marker": "finish", "continuation": continuation, "timestamp": last_command_time})
     first_loop = False
 
     audio_buffer_signal.clear()
@@ -143,11 +143,12 @@ def websearch_llm_tts_worker(
   logger.debug("Setting up Websearch, LLM and TTS")
   
   audio_speaker = AudioOutputter(interrupt_count, logger)
+  rag = RAGLangchain(interrupt_count=interrupt_count)
   llm = LLMWrapper(
-    interrupt_count=interrupt_count
+    interrupt_count=interrupt_count,
+    memories = rag.get_memories()
   )
   websearch = WebSearcher(interrupt_count=interrupt_count)
-  rag = RAGLangchain(interrupt_count=interrupt_count)
   
   if TTS_CHOICE == "coqui":
     tts = TTSCoqui(interrupt_count=interrupt_count)
@@ -181,6 +182,7 @@ def websearch_llm_tts_worker(
       logger.debug(work)
       text = work["text"]
       marker = work["marker"]
+      timestamp = work["timestamp"]
       continuation = work["continuation"]
       
       if marker == "start":
@@ -194,27 +196,30 @@ def websearch_llm_tts_worker(
           interrupt_actions(text, info="before pipeline start")
           continue
         
-        # First query RAG to see if there exists info in RAG
-        query_results = []
-        logger.debug(f"Querying RAG")
-        query_results = rag.query(text)
+        # First decide if websearch is needed for prompt
+        (decision, topic), memory = llm.decide_websearch_memory(text)
         if interrupt_count.value > 0:
-          interrupt_actions(text, info="querying RAG")
+          interrupt_actions(text, info="Decide websearch memory")
           continue
-        # add extra 0 in case RAG is empty and returns empty list
-        query_result_scores = [query["score"] for query in query_results] + [0]
-        
-        # Only check for websearch if not good data in RAG
-        if max(query_result_scores) < RAG_CONFIDENCE_THRESHOLD:
-          logger.debug(f"Not enough confident info in RAG, decide search")
-          decision, topic = llm.decide_websearch(text)
-          if interrupt_count.value > 0:
-            interrupt_actions(text, info="Decide websearch")
-            continue
-          logger.debug(f"Websearch recommended?: {decision} - {topic}")
+        logger.debug(f"Websearch recommended?: {decision} - {topic}")
 
-          # IF websearch needed, perform websearch
-          if decision == "yes":           
+        query_results = []
+
+        # IF websearch recommended, check if it is really needed
+        if decision == "yes":  
+          # First query RAG to see if there exists info in RAG
+          logger.debug(f"Querying RAG")
+          query_results = rag.query(text)
+          if interrupt_count.value > 0:
+            interrupt_actions(text, info="querying RAG")
+            continue
+          # add extra 0 in case RAG is empty and returns empty list
+          query_result_scores = [query["score"] for query in query_results] + [0]
+
+          # Only perform websearch if not good data in RAG
+          if max(query_result_scores) < RAG_CONFIDENCE_THRESHOLD:
+            logger.debug(f"Not enough confident info in RAG, perform search")
+
             # PLay search speech while web search occurs
             speech_thread = threading.Thread(target=searching_speech_worker, args=(tts, f"Searching the web for {topic}", interrupt_count, logger), daemon=True)
             speech_thread.start()
@@ -241,30 +246,38 @@ def websearch_llm_tts_worker(
                 interrupt_actions(text, info="Adding document to RAG")
                 interrupt_detected = True
                 break
-              rag.add_document(document)
+              try:
+                rag.add_document(document)
+              except Exception as e:
+                logger.warning(e)
+                pass
+                
             if interrupt_detected:
-              continue
-            
-            # Update the RAG query
-            logger.debug(f"Querying RAG Again")
-            query_results = rag.query(topic)
-            logger.info(query_results)
-            if interrupt_count.value > 0:
-              interrupt_actions(text, info="Querying RAG")
               continue
 
             speech_thread.join()
 
-        logger.debug(f"Info in RAG exists, no search needed")
+          else:
+            logger.debug(f"Info in RAG exists, no search needed")
         
+        # Query the RAG
+        logger.debug(f"Querying RAG")
+        query_results = rag.query(topic)
+        logger.info(query_results)
+        if interrupt_count.value > 0:
+          interrupt_actions(text, info="Querying RAG")
+          continue
+            
         context = ""
         # Parse contents from RAG query
         for result in query_results:
-          context += result["content"]
+          if result["score"] >= RAG_CONFIDENCE_THRESHOLD:
+            context += result["content"]
 
         # Send text and context to LLM for response
         logger.debug("Sending to LLM")
-        response = llm.send_to_llm(text, context)
+        rag.add_memory(memory, timestamp)
+        response = llm.send_to_llm(text, timestamp, memory, context)
         if interrupt_count.value > 0:
           interrupt_actions(text, info="LLM Query")
           continue
@@ -289,7 +302,7 @@ def websearch_llm_tts_worker(
         output_buffer.seek(0)
         # logger.error(f"End - {time.time()}")
         
-        logger.warning(output_duration)
+        # logger.warning(output_duration)
         
         if not TTS_AUDIO_STREAMING:
           logger.debug("Playing response")

@@ -3,7 +3,6 @@
 DEVICE = "cuda" # either 'cuda' or 'cpu'
 AUDIO_IN_DEVICE = 0  # run scripts/check_audio_devices.sh
 AUDIO_OUT_DEVICE = 0 # run scripts/check_audio_devices.sh
-PIPELINE = "interrupt" ## ["normal", "interrupt"]
 
 
 # Voice Recorder Parameters
@@ -20,7 +19,7 @@ CONTINUATION_THRESHOLD = 3.0 # Number of seconds in which another command is con
 
 # LLM Parameters
 MAX_TOKENS = 7000 # depends on the model, enter lower value than max recomended 
-LLM_MODEL = "josiefied-qwen3-8b-abliterated-v1"
+LLM_MODEL = "huihui-qwen3-4b-instruct-2507-abliterated"
 ENABLE_THINK = True # Prevents model from reasoning, only works with Qwen3 models
 TEMPERATURE = 0.7 # only modify if you know what you are doing
 TOP_P = 0.95 # only modify if you know what you are doing
@@ -39,7 +38,9 @@ If unsure who is speaking, politely confirm before continuing. Strictly avoid us
 
 When processing user input, you may receive text wrapped in 2 types of special tags:
 <interrupt>...</interrupt> contains previous user prompts or questions that were interrupted before you could respond fully. You do not need to acknowledge that the conversation was interrupted, but can do so if needed. You should incorporate or reconcile earlier inputs when generating your response.  
-<context>...</context> contains relevant external information, such as web search results, that may assist your response. Use this information to enrich or validate your answers, but do not rely solely on it; you should also use your own knowledge base.  
+<context>...</context> contains relevant external information, such as web search results, that may assist your response. Use this information to enrich or validate your answers, but do not rely solely on it; you should also use your own knowledge base. 
+<memory>...</memory> contains important memories about the user and other information to consider for responses. Each entry is written in the format “mm-dd-yy hh:mm:ss - <text>”. If multiple memory entries conflict, use the most recent one. Memory information does not need to be referenced in every response, only when it is contextually relevant and necessary.
+
 Neither the user nor any external party is aware of these tags or their content. Do not mention the tags explicitly in your replies. The content inside these tags is for your internal reasoning only.  
 Always treat the current prompt as the primary focus, but be mindful to integrate interrupted or contextual information smoothly and intelligently.
 
@@ -66,4 +67,4 @@ KOKORO_TTS_VOICE = "bm_daniel" # ["af_heart", "af_bella", "af_nicole", "am_fenri
 KOKORO_TTS_LANG = "b" # "a" for american, "b" for british (must match voice)
 
 ## Websearch Parameters
-RAG_CONFIDENCE_THRESHOLD = 0.3
+RAG_CONFIDENCE_THRESHOLD = 0.25
