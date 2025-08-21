@@ -11,6 +11,7 @@ import os
 from config import *
 from multiprocessing import Event
 from multiprocessing.synchronize import Event as EventClass
+from src.streaming.utils import is_queue_empty
 
 
 class AudioBuffer:
@@ -131,7 +132,7 @@ class Recorder:
     finally:
       self.recorder.stop()      
     
-  def record_command(self, ask_wakeword=None, command_queue=None, interrupt_count=None):
+  def record_command(self, ask_wakeword=None, command_queue=None, command_queue_lock=None, interrupt_count=None):
     wav_buffer = io.BytesIO()
     wav_file = wave.open(wav_buffer, 'wb')
     wav_file.setparams((1, 2, self.recorder.sample_rate, self.recorder.frame_length, "NONE", "NONE"))
@@ -185,7 +186,7 @@ class Recorder:
         if voice_frame_count >= voice_interrupt_frames_required:
           if ask_wakeword != None and command_queue and interrupt_count:
             # Ensure only 1 interrupt is fired
-            if not ask_wakeword and not command_queue.empty() and not interrupt_fired:
+            if not ask_wakeword and not is_queue_empty(command_queue_lock, command_queue) and not interrupt_fired:
               self.logger.warning("interrupt fired")
               interrupt_fired = True
               interrupt_count.value += 1

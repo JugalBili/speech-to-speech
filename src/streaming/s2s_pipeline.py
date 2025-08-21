@@ -3,8 +3,9 @@ import os
 import io
 import logging
 from config import *
-from multiprocessing import Process, Queue, Event, Value
+from multiprocessing import Process, Queue, Event, Value, Lock
 from multiprocessing.synchronize import Event as EventClass
+from multiprocessing.synchronize import Lock as LockClass
 from multiprocessing.sharedctypes import Synchronized as SynchronizedClass
 from multiprocessing.queues import Queue as QueueClass
 import threading
@@ -13,7 +14,7 @@ import time
 from src.streaming.logging_config import setup_logging, start_listener, stop_listener, setup_worker_logging, get_logger, get_log_queue
 from src.streaming.voice_recorder import Recorder
 from src.streaming.stt_whisper import STTWhisper
-from src.streaming.utils import save_wav_file
+from src.streaming.utils import save_wav_file, is_queue_empty
 from src.streaming.llm_wrapper import LLMWrapper
 from src.streaming.rag_langchain import RAGLangchain
 from src.streaming.web_search import WebSearcher
@@ -32,6 +33,7 @@ def wake_word_stt_worker(
   voice_setup_event : EventClass,
   pipeline_setup_event: EventClass,
   command_queue: QueueClass,
+  command_queue_lock: LockClass,
   log_queue
 ):
   setup_worker_logging(log_queue)
@@ -66,14 +68,14 @@ def wake_word_stt_worker(
       ask_wakeword = False
       audio_buffer.clear_buffer()
 
-      if not command_queue.empty():
+      if not is_queue_empty(command_queue_lock, command_queue):
         # If queue is not empty, it means that pipeline is still processing it
         # increment interrupt count
         logger.warning("interrupt fired")
         interrupt_count.value += 1
 
     logger.debug("Listening for command...")
-    command_buffer, command_duration = audio_recorder.record_command(ask_wakeword, command_queue, interrupt_count)
+    command_buffer, command_duration = audio_recorder.record_command(ask_wakeword, command_queue, command_queue_lock, interrupt_count)
     # logger.error(f"Start - {time.time()}")
 
     command_buffer.seek(0, io.SEEK_END)
@@ -136,6 +138,7 @@ def websearch_llm_tts_worker(
   voice_setup_event : EventClass,
   pipeline_setup_event: EventClass,
   command_queue: QueueClass,
+  command_queue_lock: LockClass,
   log_queue
 ):
   setup_worker_logging(log_queue)
@@ -165,6 +168,10 @@ def websearch_llm_tts_worker(
   def interrupt_actions(text, info):
     logger.warning(f"Pipeline Interrupted: {info}")
     llm.interrupt_context.append(text)
+    end_marker = command_queue.get()
+    logger.debug(end_marker)
+    interrupt_count.value -= 1
+    
     
   def searching_speech_worker(tts, text, interrupt_count, logger):
     audio_speaker = AudioOutputter(interrupt_count, logger)
@@ -177,7 +184,7 @@ def websearch_llm_tts_worker(
   voice_setup_event.wait()
   
   while True:
-    if not command_queue.empty():
+    if not is_queue_empty(command_queue_lock, command_queue):
       work = command_queue.get()
       logger.debug(work)
       text = work["text"]
@@ -318,9 +325,9 @@ def websearch_llm_tts_worker(
         # after finishing work, pop out end marker
         command_queue.get()
         
-      elif marker == "finish":
-        #only possible if pipeline was interrupted
-        interrupt_count.value -= 1
+      # elif marker == "finish":
+      #   #only possible if pipeline was interrupted
+      #   interrupt_count.value -= 1
   
   
 
@@ -331,14 +338,15 @@ def main():
   log_queue = get_log_queue()
   
   command_queue = Queue()
+  command_queue_lock = Lock()
   interrupt_count = Value("i", 0)
   voice_setup_event = Event()
   pipeline_setup_event = Event()
   # initialize first here to prevent race condition to initialize later
   audio_speaker = AudioOutputter(interrupt_count, logger)
   
-  voice_worker = Process(target=wake_word_stt_worker, args=(interrupt_count, voice_setup_event, pipeline_setup_event, command_queue, log_queue))
-  pipeline_worker = Process(target=websearch_llm_tts_worker, args=(interrupt_count, voice_setup_event, pipeline_setup_event, command_queue, log_queue))
+  voice_worker = Process(target=wake_word_stt_worker, args=(interrupt_count, voice_setup_event, pipeline_setup_event, command_queue, command_queue_lock, log_queue))
+  pipeline_worker = Process(target=websearch_llm_tts_worker, args=(interrupt_count, voice_setup_event, pipeline_setup_event, command_queue, command_queue_lock, log_queue))
   
   logger.debug("Starting Processes")
   voice_worker.start()

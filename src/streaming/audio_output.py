@@ -45,7 +45,7 @@ class AudioOutputter():
           except Exception as e:
             self.logger.error(e)
       prev_interrupt_count = count
-      self._stop_monitor.wait(0.1)  # check ~10 times per second
+      self._stop_monitor.wait(0.25)  # check ~4 times per second
    
     
   def start_audio_stream(self, sample_rate: int = 24000, bits_per_sample: int = 16):
