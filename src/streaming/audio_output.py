@@ -11,6 +11,7 @@ import time
 
 class AudioOutputter():
   _instance = None
+  _initialized = False
 
   def __new__(cls, *args, **kwargs):
     if cls._instance is None:
@@ -18,6 +19,9 @@ class AudioOutputter():
     return cls._instance
    
   def __init__(self, interrupt_count: SynchronizedClass, logger: logging.Logger):
+    if self.__class__._initialized:
+      return  # skip reinitialization
+    
     self.interrupt_count = interrupt_count
     self.logger = logger
 
@@ -29,6 +33,8 @@ class AudioOutputter():
     self._stream_queue = queue.Queue()  # buffer ~50 chunks
     self._stream_stop_event = threading.Event()
     self._stream_thread = None
+    
+    self.__class__._initialized = True
 
 
   def _interrupt_monitor(self):
@@ -76,7 +82,7 @@ class AudioOutputter():
               self.speaker.stop()
               break
             
-            # self.logger.error(f"Chunk written - {time.time()}")
+            self.logger.error(f"Chunk written - {time.time()}")
             written = self.speaker.write(pcm_chunk[total_written:])
             total_written += written
         except queue.Empty:
@@ -108,9 +114,9 @@ class AudioOutputter():
     if self.speaker:
       try:
         self.speaker.flush()
+        self.speaker.stop()
       except Exception as e:
         pass
-      self.speaker.stop()
       self.speaker.delete()
       self.speaker = None
 
@@ -182,8 +188,15 @@ class AudioOutputter():
       self.logger.debug("Waiting for audio to finish...")
       self.speaker.flush()
 
+    except Exception as e:
+      self.logger.error(e)
+
     finally:
-      self.speaker.stop()
+      try:
+        self.speaker.stop()
+      except Exception as e:
+        self.logger.error(e)
+
       self.speaker.delete()
       self.speaker = None
 

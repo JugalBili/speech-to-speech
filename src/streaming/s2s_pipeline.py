@@ -76,7 +76,7 @@ def wake_word_stt_worker(
 
     logger.debug("Listening for command...")
     command_buffer, command_duration = audio_recorder.record_command(ask_wakeword, command_queue, command_queue_lock, interrupt_count)
-    # logger.error(f"Start - {time.time()}")
+    logger.error(f"Command End - {time.time()}")
 
     command_buffer.seek(0, io.SEEK_END)
     command_size = command_buffer.tell() # size of command buffer in bytes
@@ -98,6 +98,7 @@ def wake_word_stt_worker(
     text_segments = whisper.transcribe(command_buffer)
     text = ", ".join([segment.text for segment in text_segments])
     logger.info(text)
+    logger.error(f"Text parsed - {time.time()}")
 
     if not text:
       logger.debug("No command detected")
@@ -204,7 +205,9 @@ def websearch_llm_tts_worker(
           continue
         
         # First decide if websearch is needed for prompt
+        logger.error(f"Decide Websearch start - {time.time()}")
         (decision, topic), memory = llm.decide_websearch_memory(text)
+        logger.error(f"Decide Websearch end - {time.time()}")
         if interrupt_count.value > 0:
           interrupt_actions(text, info="Decide websearch memory")
           continue
@@ -284,7 +287,9 @@ def websearch_llm_tts_worker(
         # Send text and context to LLM for response
         logger.debug("Sending to LLM")
         rag.add_memory(memory, timestamp)
+        logger.error(f"Send to llm start - {time.time()}")
         response = llm.send_to_llm(text, timestamp, memory, context)
+        logger.error(f"Send to llm end - {time.time()}")
         if interrupt_count.value > 0:
           interrupt_actions(text, info="LLM Query")
           continue

@@ -106,12 +106,16 @@ class WebSearcher:
     title = unquote(title)  # Decode %20 etc.
     
     page = wikipedia.page(title, auto_suggest=False)
-    
-    response = requests.get(website)
-    response.raise_for_status()
-    html = response.text
 
-    tables = self.parse_tables(html, "wikitable")
+    tables = ""
+
+    try:
+      response = requests.get(website)
+      response.raise_for_status()
+      html = response.text
+      tables = self.parse_tables(html, "wikitable")
+    except Exception as e:
+      self.logger.error(e)
     
     return page.content.replace("\n", ""), tables
 
@@ -129,11 +133,15 @@ class WebSearcher:
     fandom.set_wiki(fandom_page)
     page = fandom.page(title)
     
-    response = requests.get(website)
-    response.raise_for_status()
-    html = response.text
+    tables = ""
 
-    tables = self.parse_tables(html, "wikitable")
+    try:
+      response = requests.get(website)
+      response.raise_for_status()
+      html = response.text
+      tables = self.parse_tables(html, "wikitable")
+    except Exception as e:
+      self.logger.error(e)
     
     return page.plain_text.replace("\n", ""), tables
 

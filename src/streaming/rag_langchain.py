@@ -34,8 +34,9 @@ class RAGLangchain:
 
     if text == "None":
       return
-    
-    self.logger.debug(f"Adding memory: {datetime.fromtimestamp(timestamp).strftime("%m-%d-%y %H:%M:%S")} - {text}")
+
+    time_string = datetime.fromtimestamp(timestamp).strftime("%m-%d-%y %H:%M:%S")
+    self.logger.debug(f"Adding memory: {time_string} - {text}")
 
     self.core_memory_db.add_texts(
       texts=[text],

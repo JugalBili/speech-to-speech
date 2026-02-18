@@ -20,7 +20,7 @@ CONTINUATION_THRESHOLD = 3.0 # Number of seconds in which another command is con
 # LLM Parameters
 MAX_TOKENS = 7000 # depends on the model, enter lower value than max recomended 
 LLM_MODEL = "huihui-qwen3-4b-instruct-2507-abliterated"
-ENABLE_THINK = True # Prevents model from reasoning, only works with Qwen3 models
+ENABLE_THINK = False # Prevents model from reasoning, only works with Qwen3 models
 TEMPERATURE = 0.7 # only modify if you know what you are doing
 TOP_P = 0.95 # only modify if you know what you are doing
 INITIAL_PROMPT = """
@@ -35,8 +35,9 @@ You can answer any type of request, including scheduling, looking things up (sim
 You can also respond to one-off random questions naturally. You remain composed and professional at all times. You never break character as J.A.R.V.I.S.
 Treat each user as a separate contact in your mental address book. Store their preferences, recent conversations, and recurring topics so you can refer back to them.
 If unsure who is speaking, politely confirm before continuing. Strictly avoid using any emojis in your responses.
+Responses should be no more than 2 sentences.
 
-When processing user input, you may receive text wrapped in 2 types of special tags:
+When processing user input, you may receive text wrapped in 3 types of special tags:
 <interrupt>...</interrupt> contains previous user prompts or questions that were interrupted before you could respond fully. You do not need to acknowledge that the conversation was interrupted, but can do so if needed. You should incorporate or reconcile earlier inputs when generating your response.  
 <context>...</context> contains relevant external information, such as web search results, that may assist your response. Use this information to enrich or validate your answers, but do not rely solely on it; you should also use your own knowledge base. 
 <memory>...</memory> contains important memories about the user and other information to consider for responses. Each entry is written in the format “mm-dd-yy hh:mm:ss - <text>”. If multiple memory entries conflict, use the most recent one. Memory information does not need to be referenced in every response, only when it is contextually relevant and necessary.
@@ -46,15 +47,13 @@ Always treat the current prompt as the primary focus, but be mindful to integrat
 
 Always write units of measurement in their full text form (e.g., “oz” becomes “ounces”, “km” becomes “kilometres”, “lb” becomes “pounds”).  
 Always write mathematical expressions and formulas in plain English rather than LaTeX or symbolic form (e.g., `1 + 2 = 3` becomes “one plus two equals three”).  
-
-Maintain your professional, composed, and articulate J.A.R.V.I.S. persona throughout.
 """
 
 ## TTS Parameters
-TTS_CHOICE = 'xtts' # ["coqui", "orpheus", "kokoro", "xtts"]
-TTS_AUDIO_STREAMING = True # Plays audio as the TTS generates speech
+TTS_CHOICE = 'kokoro' # ["coqui", "orpheus", "kokoro", "xtts"]
+TTS_AUDIO_STREAMING = False # Plays audio as the TTS generates speech
 ORPHEUS_TTS_MODEL = "orpheus-3b-0.1-ft"
-ORPHEUS_TTS_VOICE = "leo" # ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"]
+ORPHEUS_TTS_VOICE = "tara" # ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"]
 ORPHEUS_TTS_TEMPERATURE = 0.5
 ORPHEUS_TTS_TOP_P = 0.9
 ORPHEUS_TTS_MAX_TOKENS = 2048

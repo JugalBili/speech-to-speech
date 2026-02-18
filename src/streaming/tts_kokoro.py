@@ -56,6 +56,8 @@ class TTSKokoro:
     wav_file.setsampwidth(2)
     wav_file.setframerate(self.samplerate)
     
+    audio_speaker = AudioOutputter(self.interrupt_count, self.logger)
+    audio_speaker.start_audio_stream()
     audio_duration = 0
     
     try:
@@ -74,10 +76,9 @@ class TTSKokoro:
         wav_file.writeframes(wav_Data.tobytes())
         
         self.logger.debug("Playing response")
-        wav_buffer.seek(0)
-        audio_speaker = AudioOutputter(self.interrupt_count, self.logger)
-        audio_speaker.play_wav_file(wav_buffer)
-        wav_buffer.seek(0)
+        audio_speaker.play_stream_audio(wav_Data)
+      
+      audio_speaker.stop_streaming()
 
     finally:
       wav_file.close()

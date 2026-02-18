@@ -215,7 +215,8 @@ class LLMWrapper():
     text_length = len(text.split(" "))
     
     if memory != "None":
-      self.memories.append(f"{datetime.fromtimestamp(timestamp).strftime("%m-%d-%y %H:%M:%S")} - {memory}")
+      time_string = datetime.fromtimestamp(timestamp).strftime("%m-%d-%y %H:%M:%S")
+      self.memories.append(f"{time_string} - {memory}")
     
     memories_text = ""
     for memory in self.memories:
